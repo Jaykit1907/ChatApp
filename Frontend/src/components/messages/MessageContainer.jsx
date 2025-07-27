@@ -11,13 +11,14 @@ import "./MessageContainer.css";
 const MessageContainer = ({ onBack }) => {
 	const [user, setUser] = useState(null);
 	const { selectedConversation } = useConversation();
-	const { onlineUsers } = useSocketContext();
+	const { socket, onlineUsers } = useSocketContext(); // ✅ make sure socket is destructured here
+	const [isTyping, setIsTyping] = useState(false);
 
 	const isSelectedUserOnline =
 		selectedConversation && onlineUsers.includes(selectedConversation._id);
 
 	const isLoggedUserOnline =
-		user && onlineUsers.includes(user._id); // ✅ check for logged-in user
+		user && onlineUsers.includes(user._id);
 
 	useEffect(() => {
 		const userData = localStorage.getItem("chat-user");
@@ -29,6 +30,32 @@ const MessageContainer = ({ onBack }) => {
 			}
 		}
 	}, []);
+
+	// ✅ Add this useEffect to listen to typing events
+	useEffect(() => {
+		if (!socket || !selectedConversation) return;
+
+		const handleTyping = (senderId) => {
+			if (senderId === selectedConversation._id) {
+				setIsTyping(true);
+			}
+		};
+
+		const handleStopTyping = (senderId) => {
+			if (senderId === selectedConversation._id) {
+				setIsTyping(false);
+			}
+		};
+
+		socket.on("userTyping", handleTyping);
+		socket.on("userStoppedTyping", handleStopTyping);
+
+		// Cleanup
+		return () => {
+			socket.off("userTyping", handleTyping);
+			socket.off("userStoppedTyping", handleStopTyping);
+		};
+	}, [socket, selectedConversation]);
 
 	return (
 		<div className="blur-bg">
@@ -49,6 +76,13 @@ const MessageContainer = ({ onBack }) => {
 								<span className={`chat-status ${isSelectedUserOnline ? "online1" : "offline1"}`}>
 									{isSelectedUserOnline ? "Online" : "Offline"}
 								</span>
+								{/* ✅ Typing indicator */}
+								{isTyping && (
+                                    <div className="typing-indicator">
+                                        {selectedConversation.fullName} is typing...
+                                    </div>
+
+								)}
 							</div>
 
 							{/* Logged in user */}

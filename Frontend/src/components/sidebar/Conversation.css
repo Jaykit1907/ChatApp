@@ -1,0 +1,17 @@
+.typing-status {
+	font-size: 15px;
+	color: #07fd2b; /* light blue */
+	animation: pulse 1.5s infinite;
+    position:absolute;
+    right:60px;
+}
+
+
+@keyframes pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.4;
+	}
+}

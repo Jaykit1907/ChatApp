@@ -8,6 +8,14 @@ const useConversation = create((set) => ({
 	set((state) => ({
 		messages: typeof updater === "function" ? updater(state.messages) : updater,
 	})),
+	typingUsers: {}, // ✅ Add this
+	setTypingUsers: (userId, isTyping) =>
+		set((state) => ({
+			typingUsers: {
+				...state.typingUsers,
+				[userId]: isTyping,
+			},
+		})),
 
 }));
 

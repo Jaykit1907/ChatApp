@@ -149,6 +149,39 @@
 }
 
 /* Responsive design */
+.typing-indicator {
+	font-size: 14px;         /* like Tailwind's text-sm */
+	padding: 0 1rem;         /* like px-4 */
+	color: #34d399;          /* Tailwind green-400 */
+	animation: pulse 1.5s infinite;
+}
+
+/* Animation like Tailwind's animate-pulse */
+@keyframes pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+@media screen and (max-width: 480px) {
+	.typing-indicator {
+		font-size: 12px;
+		padding: 0 0.5rem;
+	}
+    .chat-with{
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+    }
+    .user-info{
+        display: none;
+    }
+  
+}
+
 @media screen and (max-width: 370px) {
 	.user-avatar {
 		width: 25px;
@@ -164,9 +197,13 @@
 	.chat-name {
 		font-size: 14px;
 	}
+    .typing-indicator{
+
+    }
 }
 
 @media screen and (max-width:330px) {
+    
     .chat-label{
         font-size:11px;
     }

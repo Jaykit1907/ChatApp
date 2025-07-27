@@ -1,17 +1,19 @@
 import { useSocketContext } from "../../context/SocketContext";
 import useConversation from "../../zustand/useConversation";
+import "./Conversation.css";
 
 const Conversation = ({ contact, lastIdx, emoji }) => {
-	const { selectedConversation, setSelectedConversation } = useConversation();
-	const { onlineUsers } = useSocketContext();
+	const { selectedConversation, setSelectedConversation, typingUsers } = useConversation();
 
+	const { onlineUsers } = useSocketContext();
+	const isTyping = typingUsers[contact._id]; // ✅ now this works
 	const isSelected = selectedConversation?._id === contact._id;
 	const isOnline = onlineUsers.includes(contact._id);
 
 	return (
 		<>
 			<div
-				className={`flex gap-2 items-center hover:bg-sky-500 rounded p-2 py-1 cursor-pointer
+				className={`flex gap-2 items-center hover:bg-sky-500 rounded p-2 py-1 cursor-pointer relative
 				${isSelected ? "bg-sky-500" : ""}
 			`}
 				onClick={() => setSelectedConversation(contact)}
@@ -25,6 +27,11 @@ const Conversation = ({ contact, lastIdx, emoji }) => {
 				<div className='flex flex-col flex-1'>
 					<div className='flex gap-3 justify-between'>
 						<p className='font-bold text-gray-200'>{contact.fullName}</p>
+					{isTyping && (
+							<p className="typing-status">Typing...</p>
+						)}
+
+
 						<span className='text-xl'>{emoji}</span>
 					</div>
 				</div>
