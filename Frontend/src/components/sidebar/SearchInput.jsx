@@ -1,87 +1,102 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { IoSearchSharp } from "react-icons/io5";
 import toast from "react-hot-toast";
 import useConversation from "../../zustand/useConversation";
 import useGetConversations from "../../hooks/useGetConversations";
 import { SEARCH_URL } from "../../Url";
+import { useSocketContext } from "../../context/SocketContext"; // ✅ ADD THIS
+import "./SearchInput.css";
 
-const SearchInput = ({ onContactAdded }) => {
-    const [search, setSearch] = useState("");
-    const { setSelectedConversation } = useConversation();
-    const { conversations } = useGetConversations();
+const SearchInput = () => {
+	const [search, setSearch] = useState("");
+	const [user, setUser] = useState(null);
+	const { setSelectedConversation } = useConversation();
+	const { conversations } = useGetConversations();
+    const { onlineUsers } = useSocketContext();
+    const isOnline = user && onlineUsers.includes(user._id);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!search) return;
-        if (search.length < 3) {
-            return toast.error("Search term must be at least 3 characters long");
-        }
 
-        // Check if the user is already a contact
-        const existingConversation = conversations.find((c) => c.fullName.toLowerCase().includes(search.toLowerCase()));
+	useEffect(() => {
+		const userData = localStorage.getItem("chat-user");
+		if (userData) {
+			try {
+				setUser(JSON.parse(userData));
+			} catch (e) {
+				console.error("Error parsing user from localStorage", e);
+			}
+		}
+	}, []);
 
-        if (existingConversation) {
-            setSelectedConversation(existingConversation); // Set the selected conversation
-            setSearch(""); // Clear the search input
-            return; // Exit early if user is already a contact
-        }
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+		if (!search) return;
+		if (search.length < 3) {
+			return toast.error("Search term must be at least 3 characters long");
+		}
 
-        // User is not already a contact, proceed with adding the contact
-        
-            const response = await fetch(SEARCH_URL, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                 credentials: "include", 
-                body: JSON.stringify({ username: search }),
-            });
-            console.log(response);
-            const data = await response.json();
-            
+		const existingConversation = conversations.find((c) =>
+			c.fullName.toLowerCase().includes(search.toLowerCase())
+		);
 
-            if (response.ok) {
-                console.log()
-                toast.success(data.message || "Contact added successfully!");
+		if (existingConversation) {
+			setSelectedConversation(existingConversation);
+			setSearch("");
+			return;
+		}
 
-                // Fetch updated list of conversations
-                const convResponse = await fetch(SEARCH_URL); // Adjust endpoint if needed
-                const conversationsData = await convResponse.json();
-                console.log(conversationsData);
+		try {
+			const response = await fetch(SEARCH_URL, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				credentials: "include",
+				body: JSON.stringify({ username: search }),
+			});
 
-                if (convResponse.ok) {
-                    // Find the newly added contact
-                    const newConversation = conversationsData.find((c) => c.fullName.toLowerCase() === search.toLowerCase());
+			const data = await response.json();
 
-                    if (newConversation) {
-                        setSelectedConversation(newConversation); // Set the selected conversation
-                    }
+			if (response.ok) {
+				toast.success(data.message || "Contact added successfully!");
+				window.location.reload();
+			} else {
+				toast.error(data.error || "Failed to add contact");
+			}
+		} catch (error) {
+			console.error("Error adding contact:", error);
+			toast.error("Something went wrong. Please try again.");
+		}
+	};
 
-                    setSearch(""); // Clear the search input
-                    if (onContactAdded) onContactAdded(); // Notify parent component
-                } else {
-                    toast.error(data.error || "Failed to fetch updated conversations");
-                }
-            } else {
-                toast.error(data.error || "Failed to add contact");
-         }
-       
-    };
+	return (
+		<form onSubmit={handleSubmit} className="search-form">
+			<input
+				type="text"
+				placeholder="Search by username…"
+				className="search-input"
+				value={search}
+				onChange={(e) => setSearch(e.target.value)}
+			/>
+			<button type="submit" className="search-button">
+				<IoSearchSharp className="search-icon" />
+			</button>
 
-    return (
-        <form onSubmit={handleSubmit} className='flex items-center gap-2'>
-            <input
-                type='text'
-                placeholder='Search by username…'
-                className='input input-bordered rounded-full'
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-            />
-            <button type='submit' className='btn btn-circle bg-sky-500 text-white'>
-                <IoSearchSharp className='w-6 h-6 outline-none' />
-            </button>
-        </form>
-    );
+{user && (
+  <div className="user-info1">
+    <div className="user-avatar-container">
+      <img
+        src={user.profilePic || "/default-avatar.png"}
+        alt="Profile"
+        className="user-avatar"
+      />
+      {isOnline && <span className="online-dot"></span>}
+    </div>
+    <span className="logged-user">{user.username}</span>
+  </div>
+)}
+
+		</form>
+	);
 };
 
 export default SearchInput;

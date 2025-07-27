@@ -1,0 +1,174 @@
+.search-form {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	justify-content: center;
+	padding: 0.5rem;
+}
+
+/* Input */
+.search-input {
+	padding: 0.5rem 1rem;
+	border: 1px solid #ccc;
+	border-radius: 999px;
+	font-size: 1rem;
+	width: 250px;
+	max-width: 90%;
+	transition: border-color 0.3s;
+}
+
+.search-input:focus {
+	border-color: #0ea5e9;
+	outline: none;
+}
+
+/* Button */
+.search-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 42px;
+	height: 42px;
+	background-color: #0ea5e9;
+	border: none;
+	border-radius: 50%;
+	color: white;
+	cursor: pointer;
+	transition: background-color 0.3s;
+}
+
+.search-button:hover {
+	background-color: #0284c7;
+}
+
+.search-icon {
+	width: 20px;
+	height: 20px;
+}
+
+
+.user-info1 {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+    justify-content: center;
+}
+
+.user-avatar {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	border: 2px solid #0ea5e9;
+}
+
+/* Username */
+.logged-user {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: #e5e7eb;
+	white-space: nowrap;
+}
+
+.user-avatar-container {
+  position: relative;
+  display: inline-block;
+}
+
+.online-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  background-color: #22c55e; /* Tailwind's green-500 */
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+
+/* ------------------ */
+/* 🔽 Media Queries 🔽 */
+/* ------------------ */
+
+/* Tablets */
+@media screen and (max-width: 768px) {
+	.search-form {
+		flex-direction: row;
+        align-items: flex-start;
+		gap: 0.75rem;
+        
+        
+	}
+
+.search-input {
+		width: 60%;
+		font-size: 0.95rem;
+	} 
+
+   
+	.search-button {
+		height: 40px;
+        width:40px;
+		border-radius: 50%;
+	}
+
+	.logged-user {
+		
+        font-size:15px;
+	}
+}
+.user-info1{
+    height:100%;
+}
+
+.user-avatar {
+	width: 25px;
+	height: 25px;
+	border-radius: 50%;
+	object-fit: cover;
+	border: 2px solid #0ea5e9;
+}
+
+/* Small Phones */
+@media (max-width: 480px) {
+	.search-input {
+        width: 60%;
+		font-size: 0.9rem;
+        height:40px;
+		padding: 0.4rem 0.8rem;
+	}
+  
+	.search-button {
+		font-size: 0.9rem;
+	}
+    .user-info1{
+
+        height: 100%;
+        align-items: center;
+        justify-content: center;
+        
+    }
+
+	
+}   
+
+
+@media (max-width: 370px) {
+    .search-form{
+        gap:0.3rem;
+    }
+    .search-input {
+        width:70%;
+    }
+    .user-info1{
+        flex-direction: column;
+    }
+    .user-avatar{
+        height:20px;
+        width: 20px;
+    }
+    .logged-user{
+        font-size:12px;
+    }
+    
+}
