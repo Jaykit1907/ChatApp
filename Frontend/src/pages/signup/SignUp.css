@@ -1,0 +1,148 @@
+.signup-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-width: 380px;
+	margin: auto;
+	padding: 20px;
+}
+
+.signup-box {
+	width: 100%;
+	max-width: 400px;
+	padding: 24px;
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 8px;
+	backdrop-filter: blur(10px);
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.signup-title {
+	font-size: 28px;
+	text-align: center;
+	margin-bottom: 16px;
+	color: #ccc;
+    font-weight: 600;
+}
+
+.brand-name {
+	color: #3b82f6;
+}
+
+.form-group {
+	margin-bottom: 16px;
+	display: flex;
+	flex-direction: column;
+}
+
+.form-group label {
+	margin-bottom: 4px;
+	color: #064e3b;
+	font-weight: 500;
+}
+
+.form-group input {
+	height: 40px;
+	padding: 8px;
+	font-size: 16px;
+	border: 1px solid #ccc;
+	border-radius: 8px;
+	outline: none;
+}
+
+.password-wrapper {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.password-wrapper input {
+	width: 100%;
+}
+
+.toggle-password {
+	position: absolute;
+	right: 10px;
+	cursor: pointer;
+	color: #444;
+	font-size: 16px;
+}
+
+.signup-link {
+	display: inline-block;
+	margin-top: 8px;
+	font-size: 14px;
+	color: #1e40af;
+	text-decoration: none;
+}
+
+.signup-link:hover {
+	color: #2563eb;
+	text-decoration: underline;
+}
+
+.signup-button {
+	width: 100%;
+	padding: 10px;
+	margin-top: 10px;
+	background-color: white;
+	color: black;
+	border: none;
+	border-radius: 7px;
+	font-size: 16px;
+	cursor: pointer;
+    font-weight: 600;
+}
+
+.signup-button:disabled {
+	background-color: #9ca3af;
+	cursor: not-allowed;
+}
+.signup-button {
+	width: 100%;
+	padding: 6px;
+	margin-top: 10px;
+	background-color:white;
+	color:black;
+	border: none;
+	border-radius: 8px;
+	font-size: 16px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: 35px;
+}
+
+.signup-button:disabled {
+	cursor: not-allowed;
+}
+
+.blurred-loading {
+	background-color: rgba(255, 255, 255, 0.1);
+	backdrop-filter: blur(7px);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	color: #fff;
+}
+.custom-spinner {
+	width: 20px;
+	height: 20px;
+	border: 3px solid transparent;
+	border-top: 3px solid rgb(42, 36, 36);   /* visible border */
+	border-left: 3px solid rgb(42, 36, 36);  /* optional for dual tone */
+	border-radius: 50%;
+	animation: spin 0.7s linear infinite;
+	display: inline-block;
+}
+
+@keyframes spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
