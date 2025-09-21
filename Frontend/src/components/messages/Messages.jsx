@@ -9,6 +9,7 @@ const Messages = () => {
 	useListenMessages();
 	const lastMessageRef = useRef();
 
+	// Scroll to last message
 	useEffect(() => {
 		setTimeout(() => {
 			lastMessageRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -28,7 +29,7 @@ const Messages = () => {
 				))}
 
 			{loading && [...Array(3)].map((_, idx) => <MessageSkeleton key={idx} />)}
-			
+
 			{!loading && safeMessages.length === 0 && (
 				<p className='text-center'>Send a message to start the conversation</p>
 			)}

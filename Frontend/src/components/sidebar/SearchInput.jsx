@@ -6,6 +6,7 @@ import useGetConversations from "../../hooks/useGetConversations";
 import { SEARCH_URL } from "../../Url";
 import { useSocketContext } from "../../context/SocketContext"; // ✅ ADD THIS
 import "./SearchInput.css";
+import ProfileDropdown from "./ProfileDropdown"; // ✅ import your dropdown
 
 const SearchInput = () => {
 	const [search, setSearch] = useState("");
@@ -82,18 +83,22 @@ const SearchInput = () => {
 			</button>
 
 {user && (
-  <div className="user-info1">
+  <div className="user-info1 ">
     <div className="user-avatar-container">
-      <img
-        src={user.profilePic || "/default-avatar.png"}
-        alt="Profile"
-        className="user-avatar"
-      />
-      {isOnline && <span className="online-dot"></span>}
+      {/* Wrap the image with ProfileDropdown */}
+      <ProfileDropdown user={user} handleSignOut={() => console.log("Sign out")}>
+        <img
+          src={user.profilePic || "/default-avatar.png"}
+          alt="Profile"
+          className="user-avatar"
+        />
+        {isOnline && <span className="online-dot"></span>}
+      </ProfileDropdown>
     </div>
     <span className="logged-user">{user.username}</span>
   </div>
 )}
+
 
 		</form>
 	);

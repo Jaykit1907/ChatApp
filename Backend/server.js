@@ -8,13 +8,16 @@ import messageRoutes from './routes/messageRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import connectToMongoDB from './db/connectToMongoDB.js';
 import { app, server } from './socket/socket.js';
+import languageRoutes from "./routes/languageRoute.js";
+
+
 
 dotenv.config();
 
 app.use(cors({
-   //origin: "http://localhost:3000",
+//    origin: "http://localhost:3000",
     origin:"https://chat-app-frontend-gules-chi.vercel.app",
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT","PATCH", "DELETE"],
     credentials: true
 }));
 
@@ -27,6 +30,9 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
+
+app.use("/api/language", languageRoutes);
+
 
 app.use(express.static(path.join(__dirname, "/Frontend/dist")));
 app.get("/",(req,res)=>{
