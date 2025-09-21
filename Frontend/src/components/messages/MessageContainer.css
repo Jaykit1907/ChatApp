@@ -44,6 +44,10 @@
 	padding: 12px 16px;
 	color: white;
     position: relative;
+	position:fixed;
+	width:100%;
+	top:0px;
+	z-index: 20;
 }
 
 .back-button {

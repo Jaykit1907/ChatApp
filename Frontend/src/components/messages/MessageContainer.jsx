@@ -59,18 +59,18 @@ const MessageContainer = ({ onBack }) => {
 
 	return (
 		<div className="blur-bg">
-			<div className="message-container">
+			<div className="message-container ">
 				{!selectedConversation ? (
 					<NoChatSelected />
 				) : (
-					<div className="chat-panel">
+					<div className="chat-panel ">
 						{/* Header */}
 						<div className="chat-header">
 							<button className="back-button" onClick={onBack}>
 								<IoArrowBack size={20} />
 							</button>
 
-							<div className="chat-with">
+							<div className="chat-with  ">
 								<span className="chat-label">Chatting with:</span>
 								<span className="chat-name">{selectedConversation.fullName}</span>
 								<span className={`chat-status ${isSelectedUserOnline ? "online1" : "offline1"}`}>
