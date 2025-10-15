@@ -9,7 +9,9 @@ import {
     FaUser, 
     FaPhoneSlash,
     FaVolumeUp,
-    FaVolumeMute
+    FaVolumeMute,
+    FaExpand,
+    FaCompress
 } from "react-icons/fa";
 import "./CallModal.css";
 
@@ -32,6 +34,7 @@ const CallModal = ({
 }) => {
     const [callDuration, setCallDuration] = useState(0);
     const [timer, setTimer] = useState(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Timer for active calls
     useEffect(() => {
@@ -56,132 +59,172 @@ const CallModal = ({
         };
     }, [callState.status]);
 
+    // Handle fullscreen changes
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        };
+    }, []);
+
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Render different states
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log(`Error attempting to enable fullscreen: ${err.message}`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    };
+
+    // Render incoming call screen (WhatsApp style)
     const renderIncomingCall = () => (
-        <div className="call-modal incoming-call">
-            <div className="call-modal-header">
-                <h2>Incoming {callState.callType} Call</h2>
-            </div>
+        <div className="whatsapp-call-modal incoming-call">
+            <div className="call-background"></div>
             
-            <div className="caller-info">
-                <div className="caller-avatar">
-                    {selectedConversation?.profilePic ? (
-                        <img 
-                            src={selectedConversation.profilePic} 
-                            alt={selectedConversation.fullName}
-                            className="avatar-image"
-                        />
-                    ) : (
-                        <div className="avatar-placeholder">
-                            <FaUser size={40} />
+            <div className="call-content">
+                {/* Caller Info */}
+                <div className="caller-info-whatsapp">
+                    <div className="caller-avatar-whatsapp">
+                        {selectedConversation?.profilePic ? (
+                            <img 
+                                src={selectedConversation.profilePic} 
+                                alt={selectedConversation.fullName}
+                                className="avatar-image-whatsapp"
+                                onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                }}
+                            />
+                        ) : null}
+                        <div className="avatar-placeholder-whatsapp">
+                            <FaUser size={50} />
                         </div>
-                    )}
+                    </div>
+                    
+                    <h2 className="caller-name-whatsapp">{selectedConversation?.fullName}</h2>
+                    <p className="call-type-whatsapp">
+                        {callState.callType === 'video' ? 'Video Call' : 'Voice Call'}
+                    </p>
+                    <p className="call-status-whatsapp">Incoming call...</p>
                 </div>
-                <h3 className="caller-name">{selectedConversation?.fullName}</h3>
-                <p className="call-type">
-                    {callState.callType === 'video' ? 'Video Call' : 'Audio Call'}
-                </p>
-            </div>
 
-            <div className="call-modal-actions">
-                <button 
-                    className="call-btn accept-btn"
-                    onClick={onAcceptCall}
-                    title="Accept Call"
-                >
-                    {callState.callType === 'video' ? <FaVideo size={20} /> : <FaPhone size={20} />}
-                </button>
-                
-                <button 
-                    className="call-btn reject-btn"
-                    onClick={onRejectCall}
-                    title="Reject Call"
-                >
-                    <FaTimes size={24} />
-                </button>
-            </div>
-
-            <div className="call-actions-label">
-                <span>Accept</span>
-                <span>Reject</span>
+                {/* Call Controls */}
+                <div className="call-controls-whatsapp">
+                    <button 
+                        className="call-btn-whatsapp reject-btn"
+                        onClick={onRejectCall}
+                        title="Decline"
+                    >
+                        <div className="btn-circle reject">
+                            <FaPhoneSlash size={24} />
+                        </div>
+                        <span className="btn-label">Decline</span>
+                    </button>
+                    
+                    <button 
+                        className="call-btn-whatsapp accept-btn"
+                        onClick={onAcceptCall}
+                        title="Accept"
+                    >
+                        <div className="btn-circle accept">
+                            {callState.callType === 'video' ? <FaVideo size={20} /> : <FaPhone size={20} />}
+                        </div>
+                        <span className="btn-label">Accept</span>
+                    </button>
+                </div>
             </div>
         </div>
     );
 
+    // Render outgoing call screen
     const renderOutgoingCall = () => (
-        <div className="call-modal outgoing-call">
-            <div className="call-modal-header">
-                <h2>Calling...</h2>
-            </div>
+        <div className="whatsapp-call-modal outgoing-call">
+            <div className="call-background"></div>
             
-            <div className="caller-info">
-                <div className="caller-avatar">
-                    {selectedConversation?.profilePic ? (
-                        <img 
-                            src={selectedConversation.profilePic} 
-                            alt={selectedConversation.fullName}
-                            className="avatar-image"
-                        />
-                    ) : (
-                        <div className="avatar-placeholder">
-                            <FaUser size={40} />
+            <div className="call-content">
+                <div className="caller-info-whatsapp">
+                    <div className="caller-avatar-whatsapp">
+                        {selectedConversation?.profilePic ? (
+                            <img 
+                                src={selectedConversation.profilePic} 
+                                alt={selectedConversation.fullName}
+                                className="avatar-image-whatsapp"
+                                onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                }}
+                            />
+                        ) : null}
+                        <div className="avatar-placeholder-whatsapp">
+                            <FaUser size={50} />
                         </div>
-                    )}
+                    </div>
+                    
+                    <h2 className="caller-name-whatsapp">{selectedConversation?.fullName}</h2>
+                    <p className="call-type-whatsapp">
+                        {callState.callType === 'video' ? 'Video Call' : 'Voice Call'}
+                    </p>
+                    <p className="call-status-whatsapp">Calling...</p>
                 </div>
-                <h3 className="caller-name">{selectedConversation?.fullName}</h3>
-                <p className="call-status">Ringing...</p>
-            </div>
 
-            <div className="call-modal-actions">
-                <button 
-                    className="call-btn cancel-btn"
-                    onClick={onEndCall}
-                    title="Cancel Call"
-                >
-                    <FaPhoneSlash size={20} />
-                </button>
-            </div>
-
-            <div className="call-actions-label">
-                <span>Cancel</span>
+                <div className="call-controls-whatsapp">
+                    <button 
+                        className="call-btn-whatsapp cancel-btn"
+                        onClick={onEndCall}
+                        title="Cancel"
+                    >
+                        <div className="btn-circle cancel">
+                            <FaTimes size={24} />
+                        </div>
+                        <span className="btn-label">Cancel</span>
+                    </button>
+                </div>
             </div>
         </div>
     );
 
-    const renderActiveCall = () => (
-        <div className={`call-modal active-call ${callState.callType}-call`}>
-            {/* Video Streams */}
-            <div className="video-streams">
-                {/* Remote Video */}
-                <div className="remote-stream">
+    // Render active video call
+    const renderActiveVideoCall = () => (
+        <div className={`whatsapp-call-modal active-call ${isFullscreen ? 'fullscreen' : ''}`}>
+            {/* Remote Video (Main) */}
+            <div className="video-container">
+                <div className="remote-video-container">
                     {remoteStream ? (
                         <video 
                             ref={remoteVideoRef}
                             autoPlay 
                             playsInline 
                             muted={false}
-                            className="video-element remote-video"
+                            className="remote-video"
                         />
                     ) : (
-                        <div className="no-video-placeholder">
+                        <div className="no-video-overlay">
                             <div className="user-avatar-large">
                                 {selectedConversation?.profilePic ? (
                                     <img 
                                         src={selectedConversation.profilePic} 
                                         alt={selectedConversation.fullName}
                                         className="avatar-image-large"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'flex';
+                                        }}
                                     />
-                                ) : (
-                                    <div className="avatar-placeholder-large">
-                                        <FaUser size={60} />
-                                    </div>
-                                )}
+                                ) : null}
+                                <div className="avatar-placeholder-large">
+                                    <FaUser size={60} />
+                                </div>
                             </div>
                             <h3>{selectedConversation?.fullName}</h3>
                             <p>Connecting...</p>
@@ -189,150 +232,172 @@ const CallModal = ({
                     )}
                 </div>
 
-                {/* Local Video (for video calls) */}
-                {callState.callType === 'video' && localStream && (
-                    <div className="local-stream">
+                {/* Local Video (Picture-in-picture) */}
+                {localStream && (
+                    <div className="local-video-pip">
                         <video 
                             ref={localVideoRef}
                             autoPlay 
                             playsInline 
                             muted 
-                            className="video-element local-video"
+                            className="local-video"
                         />
                         {isVideoOff && (
-                            <div className="video-off-overlay">
-                                <FaVideoSlash size={24} />
-                                <span>Camera Off</span>
+                            <div className="video-off-indicator">
+                                <FaVideoSlash size={16} />
+                                <span>Your camera is off</span>
                             </div>
                         )}
                     </div>
                 )}
-            </div>
 
-            {/* Call Info */}
-            <div className="call-info">
-                <h3 className="caller-name-active">{selectedConversation?.fullName}</h3>
-                <p className="call-duration">{formatTime(callDuration)}</p>
-                <p className="call-status-active">
-                    {callState.callType === 'video' ? 'Video Call' : 'Audio Call'} • 
-                    {remoteStream ? ' Connected' : ' Connecting...'}
-                </p>
+                {/* Call Info Overlay */}
+                <div className="call-info-overlay">
+                    <div className="caller-info-mini">
+                        <h3 className="caller-name-mini">{selectedConversation?.fullName}</h3>
+                        <p className="call-duration-mini">{formatTime(callDuration)}</p>
+                    </div>
+                    
+                    <button 
+                        className="fullscreen-btn"
+                        onClick={toggleFullscreen}
+                        title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                    >
+                        {isFullscreen ? <FaCompress size={16} /> : <FaExpand size={16} />}
+                    </button>
+                </div>
             </div>
 
             {/* Call Controls */}
-            <div className="call-controls-active">
+            <div className="call-controls-bottom">
                 <button 
-                    className={`control-btn ${isMuted ? 'active' : ''}`}
+                    className={`control-btn-bottom ${isMuted ? 'active' : ''}`}
                     onClick={onToggleMute}
                     title={isMuted ? "Unmute" : "Mute"}
                 >
-                    {isMuted ? <FaMicrophoneSlash size={18} /> : <FaMicrophone size={18} />}
+                    <div className="btn-circle-control">
+                        {isMuted ? <FaMicrophoneSlash size={18} /> : <FaMicrophone size={18} />}
+                    </div>
                     <span className="control-label">{isMuted ? "Unmute" : "Mute"}</span>
                 </button>
 
-                {callState.callType === 'video' && (
-                    <button 
-                        className={`control-btn ${isVideoOff ? 'active' : ''}`}
-                        onClick={onToggleVideo}
-                        title={isVideoOff ? "Turn on camera" : "Turn off camera"}
-                    >
+                <button 
+                    className={`control-btn-bottom ${isVideoOff ? 'active' : ''}`}
+                    onClick={onToggleVideo}
+                    title={isVideoOff ? "Turn on camera" : "Turn off camera"}
+                >
+                    <div className="btn-circle-control">
                         {isVideoOff ? <FaVideoSlash size={18} /> : <FaVideo size={18} />}
-                        <span className="control-label">{isVideoOff ? "Camera On" : "Camera Off"}</span>
-                    </button>
-                )}
-
-                {/* Speaker button for audio calls */}
-                {callState.callType === 'audio' && (
-                    <button 
-                        className={`control-btn ${!isSpeakerOn ? 'active' : ''}`}
-                        onClick={onToggleSpeaker}
-                        title={isSpeakerOn ? "Turn off speaker" : "Turn on speaker"}
-                    >
-                        {isSpeakerOn ? <FaVolumeUp size={18} /> : <FaVolumeMute size={18} />}
-                        <span className="control-label">{isSpeakerOn ? "Speaker" : "Muted"}</span>
-                    </button>
-                )}
+                    </div>
+                    <span className="control-label">{isVideoOff ? "Camera on" : "Camera off"}</span>
+                </button>
 
                 <button 
-                    className="control-btn end-call-btn"
+                    className={`control-btn-bottom ${!isSpeakerOn ? 'active' : ''}`}
+                    onClick={onToggleSpeaker}
+                    title={isSpeakerOn ? "Speaker off" : "Speaker on"}
+                >
+                    <div className="btn-circle-control">
+                        {isSpeakerOn ? <FaVolumeUp size={18} /> : <FaVolumeMute size={18} />}
+                    </div>
+                    <span className="control-label">{isSpeakerOn ? "Speaker" : "Muted"}</span>
+                </button>
+
+                <button 
+                    className="control-btn-bottom end-call-btn"
                     onClick={onEndCall}
                     title="End Call"
                 >
-                    <FaPhoneSlash size={18} />
+                    <div className="btn-circle-control end-call">
+                        <FaPhoneSlash size={18} />
+                    </div>
                     <span className="control-label">End Call</span>
                 </button>
             </div>
         </div>
     );
 
-    const renderAudioCall = () => (
-        <div className="call-modal audio-call-only">
-            <div className="call-modal-header">
-                <h2>Audio Call</h2>
-            </div>
+    // Render active audio call
+    const renderActiveAudioCall = () => (
+        <div className="whatsapp-call-modal audio-call">
+            <div className="call-background"></div>
             
-            <div className="caller-info">
-                <div className="caller-avatar">
-                    {selectedConversation?.profilePic ? (
-                        <img 
-                            src={selectedConversation.profilePic} 
-                            alt={selectedConversation.fullName}
-                            className="avatar-image"
-                        />
-                    ) : (
-                        <div className="avatar-placeholder">
-                            <FaUser size={40} />
+            <div className="call-content">
+                <div className="caller-info-whatsapp">
+                    <div className="caller-avatar-whatsapp large">
+                        {selectedConversation?.profilePic ? (
+                            <img 
+                                src={selectedConversation.profilePic} 
+                                alt={selectedConversation.fullName}
+                                className="avatar-image-whatsapp"
+                                onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                }}
+                            />
+                        ) : null}
+                        <div className="avatar-placeholder-whatsapp">
+                            <FaUser size={60} />
                         </div>
-                    )}
+                    </div>
+                    
+                    <h2 className="caller-name-whatsapp">{selectedConversation?.fullName}</h2>
+                    <p className="call-duration-audio">{formatTime(callDuration)}</p>
+                    <p className="call-status-audio">
+                        {remoteStream ? 'Voice call' : 'Connecting...'}
+                    </p>
                 </div>
-                <h3 className="caller-name">{selectedConversation?.fullName}</h3>
-                <p className="call-duration-audio">{formatTime(callDuration)}</p>
-                <p className="call-status-audio">
-                    {remoteStream ? 'Connected' : 'Connecting...'}
-                </p>
-            </div>
 
-            <div className="call-controls-audio">
-                <button 
-                    className={`control-btn ${isMuted ? 'active' : ''}`}
-                    onClick={onToggleMute}
-                    title={isMuted ? "Unmute" : "Mute"}
-                >
-                    {isMuted ? <FaMicrophoneSlash size={18} /> : <FaMicrophone size={18} />}
-                </button>
+                {/* Audio Call Controls */}
+                <div className="audio-call-controls">
+                    <button 
+                        className={`control-btn-audio ${isMuted ? 'active' : ''}`}
+                        onClick={onToggleMute}
+                        title={isMuted ? "Unmute" : "Mute"}
+                    >
+                        <div className="btn-circle-audio">
+                            {isMuted ? <FaMicrophoneSlash size={18} /> : <FaMicrophone size={18} />}
+                        </div>
+                        <span className="control-label">{isMuted ? "Unmute" : "Mute"}</span>
+                    </button>
 
-                {/* Speaker button for audio call */}
-                <button 
-                    className={`control-btn ${!isSpeakerOn ? 'active' : ''}`}
-                    onClick={onToggleSpeaker}
-                    title={isSpeakerOn ? "Turn off speaker" : "Turn on speaker"}
-                >
-                    {isSpeakerOn ? <FaVolumeUp size={18} /> : <FaVolumeMute size={18} />}
-                </button>
+                    <button 
+                        className={`control-btn-audio ${!isSpeakerOn ? 'active' : ''}`}
+                        onClick={onToggleSpeaker}
+                        title={isSpeakerOn ? "Speaker off" : "Speaker on"}
+                    >
+                        <div className="btn-circle-audio">
+                            {isSpeakerOn ? <FaVolumeUp size={18} /> : <FaVolumeMute size={18} />}
+                        </div>
+                        <span className="control-label">{isSpeakerOn ? "Speaker" : "Muted"}</span>
+                    </button>
 
-                <button 
-                    className="control-btn end-call-btn"
-                    onClick={onEndCall}
-                    title="End Call"
-                >
-                    <FaPhoneSlash size={18} />
-                </button>
+                    <button 
+                        className="control-btn-audio end-call-audio"
+                        onClick={onEndCall}
+                        title="End Call"
+                    >
+                        <div className="btn-circle-audio end-call">
+                            <FaPhoneSlash size={18} />
+                        </div>
+                        <span className="control-label">End Call</span>
+                    </button>
+                </div>
             </div>
         </div>
     );
 
-    // Don't render if no active call state
+    // Don't render if no active call
     if (!callState.isCalling && !callState.isReceivingCall && callState.status !== 'active') {
         return null;
     }
 
     return (
-        <div className="call-modal-overlay">
-            {/* Render based on call state */}
+        <div className="whatsapp-call-overlay">
             {callState.isReceivingCall && renderIncomingCall()}
             {callState.isCalling && callState.status !== 'active' && renderOutgoingCall()}
-            {callState.status === 'active' && callState.callType === 'video' && renderActiveCall()}
-            {callState.status === 'active' && callState.callType === 'audio' && renderAudioCall()}
+            {callState.status === 'active' && callState.callType === 'video' && renderActiveVideoCall()}
+            {callState.status === 'active' && callState.callType === 'audio' && renderActiveAudioCall()}
         </div>
     );
 };
