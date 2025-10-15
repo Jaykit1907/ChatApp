@@ -1,0 +1,475 @@
+/* Call Modal Overlay */
+.call-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(10px);
+}
+
+/* Base Call Modal */
+.call-modal {
+    background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+    border-radius: 20px;
+    padding: 30px;
+    text-align: center;
+    color: white;
+    min-width: 350px;
+    max-width: 90vw;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.call-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #4CAF50, #2196F3);
+}
+
+/* Incoming Call */
+.incoming-call {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* Call Modal Header */
+.call-modal-header {
+    margin-bottom: 30px;
+}
+
+.call-modal-header h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #fff;
+}
+
+/* Caller Info */
+.caller-info {
+    margin-bottom: 40px;
+}
+
+.caller-avatar {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    background: #333;
+}
+
+.avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #555;
+    color: #ccc;
+}
+
+.caller-name {
+    margin: 0 0 10px 0;
+    font-size: 28px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.call-type, .call-status {
+    margin: 0;
+    color: #ccc;
+    font-size: 16px;
+}
+
+/* Call Modal Actions */
+.call-modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 15px;
+}
+
+.call-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 24px;
+    color: white;
+}
+
+.accept-btn {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3);
+}
+
+.accept-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 12px 25px rgba(76, 175, 80, 0.4);
+}
+
+.reject-btn, .cancel-btn {
+    background: linear-gradient(135deg, #f44336, #da190b);
+    box-shadow: 0 8px 20px rgba(244, 67, 54, 0.3);
+}
+
+.reject-btn:hover, .cancel-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 12px 25px rgba(244, 67, 54, 0.4);
+}
+
+.call-actions-label {
+    display: flex;
+    justify-content: center;
+    gap: 100px;
+    color: #ccc;
+    font-size: 14px;
+}
+
+.call-actions-label span {
+    width: 80px;
+    text-align: center;
+}
+
+/* Active Call Styles */
+.active-call {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.video-call {
+    background: #000;
+}
+
+.audio-call {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+}
+
+/* Video Streams */
+.video-streams {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+}
+
+.remote-stream {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.local-stream {
+    position: absolute;
+    bottom: 120px;
+    right: 20px;
+    width: 200px;
+    height: 150px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+}
+
+.video-element {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remote-video {
+    background: #000;
+}
+
+.local-video {
+    background: #000;
+}
+
+/* No Video Placeholder */
+.no-video-placeholder {
+    text-align: center;
+    color: #ccc;
+}
+
+.user-avatar-large {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #333;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+}
+
+.avatar-image-large {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder-large {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ccc;
+}
+
+/* Video Off Overlay */
+.video-off-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #ccc;
+    gap: 10px;
+}
+
+/* Call Info */
+.call-info {
+    position: absolute;
+    top: 30px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+    padding: 20px;
+}
+
+.caller-name-active {
+    margin: 0 0 5px 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.call-duration {
+    margin: 0 0 5px 0;
+    font-size: 18px;
+    color: #4CAF50;
+    font-weight: 500;
+}
+
+.call-status-active {
+    margin: 0;
+    color: #ccc;
+    font-size: 14px;
+}
+
+/* Active Call Controls */
+.call-controls-active {
+    position: absolute;
+    bottom: 40px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+}
+
+.control-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50px;
+    padding: 15px 20px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 80px;
+}
+
+.control-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.control-btn.active {
+    background: #f44336;
+}
+
+.control-btn.end-call-btn {
+    background: #f44336;
+}
+
+.control-btn.end-call-btn:hover {
+    background: #da190b;
+    transform: translateY(-2px);
+}
+
+.control-label {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Audio Call Only */
+.audio-call-only {
+    min-width: 400px;
+}
+
+.call-duration-audio {
+    font-size: 32px;
+    margin: 10px 0;
+    color: #4CAF50;
+    font-weight: 600;
+}
+
+.call-status-audio {
+    margin: 0;
+    color: #ccc;
+    font-size: 16px;
+}
+
+.call-controls-audio {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-top: 30px;
+}
+
+.call-controls-audio .control-btn {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Speaker button specific styles */
+.control-btn.active {
+    background: #f44336;
+}
+
+.control-btn:not(.active) {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .call-modal {
+        min-width: 300px;
+        padding: 20px;
+    }
+    
+    .caller-avatar {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .caller-name {
+        font-size: 24px;
+    }
+    
+    .call-btn {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .local-stream {
+        width: 120px;
+        height: 90px;
+        bottom: 100px;
+        right: 10px;
+    }
+    
+    .call-controls-active {
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .control-btn {
+        padding: 12px 15px;
+        min-width: 70px;
+    }
+    
+    .call-controls-audio {
+        gap: 20px;
+    }
+    
+    .call-controls-audio .control-btn {
+        width: 60px;
+        height: 60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .call-modal {
+        min-width: 280px;
+        padding: 15px;
+    }
+    
+    .call-modal-actions {
+        gap: 20px;
+    }
+    
+    .call-actions-label {
+        gap: 60px;
+    }
+    
+    .call-controls-active {
+        gap: 10px;
+    }
+    
+    .control-btn {
+        min-width: 60px;
+        padding: 10px 12px;
+    }
+    
+    .control-label {
+        font-size: 10px;
+    }
+}

@@ -15,7 +15,7 @@ import languageRoutes from "./routes/languageRoute.js";
 dotenv.config();
 
 app.use(cors({
-//    origin: "http://localhost:3000",
+  // origin: "http://localhost:3000",
     origin:"https://chat-app-frontend-gules-chi.vercel.app",
     methods: ["GET", "POST", "PUT","PATCH", "DELETE"],
     credentials: true

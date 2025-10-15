@@ -16,6 +16,7 @@
     "@headlessui/react": "^2.2.8",
     "autoprefixer": "^10.4.19",
     "emoji-picker-react": "^4.13.2",
+    "framer-motion": "^12.23.22",
     "lucide-react": "^0.544.0",
     "major-project": "file:..",
     "postcss": "^8.4.38",
@@ -24,6 +25,7 @@
     "react-hot-toast": "^2.6.0",
     "react-icons": "^5.5.0",
     "react-router-dom": "^6.23.0",
+    "react-toastify": "^11.0.5",
     "socket.io-client": "^4.7.5",
     "zustand": "^4.5.2"
   },

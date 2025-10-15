@@ -232,3 +232,163 @@
         font-size:10px;
     }
 }
+
+/* Call Interface Styles */
+.call-interface {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: #000;
+	z-index: 1000;
+	display: flex;
+	flex-direction: column;
+}
+
+.video-container {
+	flex: 1;
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.remote-video {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.local-video {
+	position: absolute;
+	bottom: 100px;
+	right: 20px;
+	width: 200px;
+	height: 150px;
+	border: 2px solid white;
+	border-radius: 10px;
+	overflow: hidden;
+}
+
+.video-element {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.video-element.small {
+	width: 100%;
+	height: 100%;
+}
+
+.call-controls {
+	position: absolute;
+	bottom: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	gap: 20px;
+	padding: 20px;
+	background: rgba(0, 0, 0, 0.5);
+	border-radius: 50px;
+}
+
+.control-btn {
+	width: 60px;
+	height: 60px;
+	border-radius: 50%;
+	border: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 20px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.control-btn:hover {
+	transform: scale(1.1);
+}
+
+.control-btn.muted {
+	background-color: #f44336;
+	color: white;
+}
+
+.control-btn.video-off {
+	background-color: #f44336;
+	color: white;
+}
+
+.control-btn.end-call {
+	background-color: #f44336;
+	color: white;
+}
+
+.call-icon {
+	font-size: 48px;
+	margin-bottom: 20px;
+}
+/* Call buttons in header */
+.call-buttons {
+    display: flex;
+    gap: 10px;
+    margin: 0 15px;
+}
+
+.call-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+}
+
+.call-btn:hover:not(:disabled) {
+    transform: scale(1.1);
+}
+
+.call-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.video-call {
+    background-color: #4CAF50;
+}
+
+.audio-call {
+    background-color: #2196F3;
+}
+
+/* Call status indicator */
+.call-status-indicator {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0 15px;
+}
+
+.call-status-calling {
+    background: #FF9800;
+    color: white;
+}
+
+.call-status-incoming {
+    background: #2196F3;
+    color: white;
+}
+
+.call-status-active {
+    background: #4CAF50;
+    color: white;
+}
