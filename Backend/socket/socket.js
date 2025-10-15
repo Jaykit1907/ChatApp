@@ -9,13 +9,14 @@ const io = new Server(server, {
 	cors: {
 		//origin: ["http://localhost:3000"],
 		origin:"https://chat-app-frontend-gules-chi.vercel.app",
+
 		methods: ["GET", "POST"],
 		credentials: true,
 	},
 });
 
 const userSocketMap = {};
-const activeCalls = new Map();
+const activeCalls = new Map(); // Track active calls
 
 export const getReceiverSocketId = (receiverId) => {
 	return userSocketMap[receiverId];
@@ -42,156 +43,144 @@ io.on("connection", (socket) => {
 		socket.to(userSocketMap[to]).emit("userStoppedTyping", socket.userId);
 	});
 
-	// Call events
-	socket.on("initiateCall", (data) => {
-		const { to, from, callType } = data;
-		const callId = `${from}-${to}-${Date.now()}`;
+	// 🔥 CALL EVENTS - Updated to match frontend
+
+	// Call initiation
+	socket.on("callUser", (data) => {
+		const { userToCall, callType, caller, roomID } = data;
 		
+		const callId = `${caller._id}-${userToCall}-${Date.now()}`;
+		
+		// Store call information
 		activeCalls.set(callId, {
-			participants: [from, to],
+			participants: [caller._id, userToCall],
 			callType: callType,
 			status: 'calling',
-			caller: from,
-			receiver: to,
-			callId: callId
+			caller: caller._id,
+			receiver: userToCall,
+			callId: callId,
+			roomID: roomID
 		});
 
-		const receiverSocketId = getReceiverSocketId(to);
+		const receiverSocketId = getReceiverSocketId(userToCall);
 		if (receiverSocketId) {
 			socket.to(receiverSocketId).emit("incomingCall", {
-				callId,
-				from: from,
-				to: to,
 				callType: callType,
-				callerName: data.callerName
+				caller: caller,
+				roomID: roomID,
+				callId: callId
 			});
-			console.log(`Call initiated: ${callId}, Type: ${callType}`);
+			console.log(`📞 Call initiated from ${caller.fullName} to ${userToCall}, Type: ${callType}`);
 		} else {
+			// User is offline
 			activeCalls.delete(callId);
 			socket.emit("callEnded", {
-				callId,
 				reason: "User is offline"
 			});
 		}
 	});
 
+	// Call acceptance
 	socket.on("acceptCall", (data) => {
-		const { callId, to, from } = data;
-		const call = activeCalls.get(callId);
+		const { callerId, roomID } = data;
 		
-		if (call) {
-			activeCalls.set(callId, { ...call, status: 'active' });
+		// Find the call by caller ID and room ID
+		let callIdToUpdate = null;
+		for (const [callId, callData] of activeCalls.entries()) {
+			if (callData.caller === callerId && callData.roomID === roomID) {
+				callIdToUpdate = callId;
+				break;
+			}
+		}
+		
+		if (callIdToUpdate) {
+			const call = activeCalls.get(callIdToUpdate);
+			activeCalls.set(callIdToUpdate, { ...call, status: 'active' });
 			
-			const callerSocketId = getReceiverSocketId(to);
+			const callerSocketId = getReceiverSocketId(callerId);
 			if (callerSocketId) {
 				socket.to(callerSocketId).emit("callAccepted", {
-					callId,
-					from: from,
-					to: to
+					roomID: roomID
 				});
+				console.log(`✅ Call accepted by ${socket.userId}`);
 			}
 		}
 	});
 
+	// Call rejection
 	socket.on("rejectCall", (data) => {
-		const { callId, to, from, reason } = data;
-		const call = activeCalls.get(callId);
+		const { callerId } = data;
 		
-		if (call) {
-			const callerSocketId = getReceiverSocketId(to);
+		// Find calls by this caller
+		let callIdToDelete = null;
+		for (const [callId, callData] of activeCalls.entries()) {
+			if (callData.caller === callerId && callData.status === 'calling') {
+				callIdToDelete = callId;
+				break;
+			}
+		}
+		
+		if (callIdToDelete) {
+			const call = activeCalls.get(callIdToDelete);
+			const callerSocketId = getReceiverSocketId(callerId);
 			if (callerSocketId) {
 				socket.to(callerSocketId).emit("callRejected", {
-					callId,
-					from: from,
-					to: to,
-					reason: reason
+					reason: "Call rejected"
 				});
+				console.log(`❌ Call rejected by ${socket.userId}`);
 			}
-			activeCalls.delete(callId);
+			activeCalls.delete(callIdToDelete);
 		}
 	});
 
+	// Call end
 	socket.on("endCall", (data) => {
-		const { callId, to, from } = data;
-		const call = activeCalls.get(callId);
+		const { userToCall } = data;
 		
-		if (call) {
-			// Notify receiver
-			const receiverSocketId = getReceiverSocketId(to);
-			if (receiverSocketId) {
-				socket.to(receiverSocketId).emit("callEnded", {
-					callId,
-					from: from,
-					reason: "Call ended by user"
-				});
+		// Find all calls involving these users
+		const callsToEnd = [];
+		for (const [callId, callData] of activeCalls.entries()) {
+			if (callData.participants.includes(socket.userId) && 
+				callData.participants.includes(userToCall)) {
+				callsToEnd.push(callId);
 			}
-
-			// Notify caller
-			const callerSocketId = getReceiverSocketId(from);
-			if (callerSocketId) {
-				socket.to(callerSocketId).emit("callEnded", {
-					callId,
-					from: from,
-					reason: "Call ended by you"
-				});
+		}
+		
+		callsToEnd.forEach(callId => {
+			const call = activeCalls.get(callId);
+			
+			// Notify the other participant
+			const otherParticipant = call.participants.find(id => id !== socket.userId);
+			const otherSocketId = getReceiverSocketId(otherParticipant);
+			
+			if (otherSocketId) {
+				socket.to(otherSocketId).emit("callEnded");
+				console.log(`📵 Call ended by ${socket.userId}`);
 			}
-
+			
 			activeCalls.delete(callId);
-		}
-	});
-
-	// WebRTC signaling events
-	socket.on("webrtc-offer", (data) => {
-		const { offer, to } = data;
-		const receiverSocketId = getReceiverSocketId(to);
-		if (receiverSocketId) {
-			socket.to(receiverSocketId).emit("webrtc-offer", {
-				offer,
-				from: socket.userId
-			});
-		}
-	});
-
-	socket.on("webrtc-answer", (data) => {
-		const { answer, to } = data;
-		const receiverSocketId = getReceiverSocketId(to);
-		if (receiverSocketId) {
-			socket.to(receiverSocketId).emit("webrtc-answer", {
-				answer,
-				from: socket.userId
-			});
-		}
-	});
-
-	socket.on("webrtc-ice-candidate", (data) => {
-		const { candidate, to } = data;
-		const receiverSocketId = getReceiverSocketId(to);
-		if (receiverSocketId) {
-			socket.to(receiverSocketId).emit("webrtc-ice-candidate", {
-				candidate,
-				from: socket.userId
-			});
-		}
+		});
 	});
 
 	socket.on("disconnect", () => {
 		console.log("User disconnected", socket.id);
 		
+		// Handle calls when user disconnects
 		for (const [callId, callData] of activeCalls.entries()) {
 			if (callData.participants.includes(userId)) {
+				// Notify other participants
 				callData.participants.forEach(participantId => {
 					if (participantId !== userId) {
 						const participantSocketId = getReceiverSocketId(participantId);
 						if (participantSocketId) {
 							socket.to(participantSocketId).emit("callEnded", {
-								callId,
-								from: userId,
 								reason: "User disconnected"
 							});
 						}
 					}
 				});
 				activeCalls.delete(callId);
+				console.log(`Call ${callId} ended due to user disconnect`);
 			}
 		}
 

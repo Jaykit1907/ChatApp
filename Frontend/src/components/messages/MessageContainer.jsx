@@ -1,468 +1,397 @@
-import { useEffect, useRef, useState } from "react";
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { useEffect, useState } from "react";
 import useConversation from "../../zustand/useConversation";
 import MessageInput from "./MessageInput";
 import Messages from "./Messages";
 import { TiMessages } from "react-icons/ti";
 import { IoArrowBack } from "react-icons/io5";
-import { FaVideo, FaPhone, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
+import { FaPhone, FaVideo, FaPhoneSlash, FaPhoneAlt } from "react-icons/fa";
 import { useAuthContext } from "../../context/AuthContext";
 import { useSocketContext } from "../../context/SocketContext";
-import CallModal from "./CallModal";
 import "./MessageContainer.css";
 
+// 🔥 Import ZEGOCLOUD directly for frontend
+import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
+
 const MessageContainer = ({ onBack }) => {
-    const [user, setUser] = useState(null);
-    const { selectedConversation } = useConversation();
-    const { socket, onlineUsers } = useSocketContext();
-    const [isTyping, setIsTyping] = useState(false);
-    
-    // Call states
-    const [callState, setCallState] = useState({
-        isCalling: false,
-        isReceivingCall: false,
-        callType: null,
-        caller: null,
-        receiver: null,
-        callId: null,
-        status: 'idle'
+  const [user, setUser] = useState(null);
+  const { selectedConversation } = useConversation();
+  const { socket, onlineUsers } = useSocketContext();
+  const [isTyping, setIsTyping] = useState(false);
+  
+  // Call states
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [callType, setCallType] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [isCallInitiator, setIsCallInitiator] = useState(false);
+  const [callStatus, setCallStatus] = useState("");
+
+  const isSelectedUserOnline = selectedConversation && onlineUsers.includes(selectedConversation._id);
+  const isLoggedUserOnline = user && onlineUsers.includes(user._id);
+
+const ZEGO_CONFIG = {
+  appID: Number(import.meta.env.VITE_ZEGO_APP_ID),
+  serverSecret: import.meta.env.VITE_ZEGO_SERVER_SECRET
+};
+
+
+  useEffect(() => {
+    const userData = localStorage.getItem("chat-user");
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (e) {
+        console.error("Error parsing user from localStorage", e);
+      }
+    }
+  }, []);
+
+  // Typing events
+  useEffect(() => {
+    if (!socket || !selectedConversation) return;
+
+    const handleTyping = (senderId) => {
+      if (senderId === selectedConversation._id) {
+        setIsTyping(true);
+      }
+    };
+
+    const handleStopTyping = (senderId) => {
+      if (senderId === selectedConversation._id) {
+        setIsTyping(false);
+      }
+    };
+
+    socket.on("userTyping", handleTyping);
+    socket.on("userStoppedTyping", handleStopTyping);
+
+    return () => {
+      socket.off("userTyping", handleTyping);
+      socket.off("userStoppedTyping", handleStopTyping);
+    };
+  }, [socket, selectedConversation]);
+
+  // 🔥 1. START CALL (Simplified)
+  const startCall = async (type) => {
+    if (!selectedConversation || !user) {
+      alert("Please select a conversation first");
+      return;
+    }
+
+    if (!isSelectedUserOnline) {
+      alert("User is offline. Cannot start call.");
+      return;
+    }
+
+    setCallType(type);
+    setIsCallActive(true);
+    setIsCallInitiator(true);
+    setCallStatus("calling");
+
+    // Notify the other user
+    socket.emit("callUser", {
+      userToCall: selectedConversation._id,
+      callType: type,
+      caller: user,
+      roomID: `chat_${[user._id, selectedConversation._id].sort().join('_')}`
     });
-    const [localStream, setLocalStream] = useState(null);
-    const [remoteStream, setRemoteStream] = useState(null);
-    const [isMuted, setIsMuted] = useState(false);
-    const [isVideoOff, setIsVideoOff] = useState(false);
-    const [isSpeakerOn, setIsSpeakerOn] = useState(true);
 
-    const localVideoRef = useRef(null);
-    const remoteVideoRef = useRef(null);
-    const peerConnection = useRef(null);
-    const callTimeoutRef = useRef(null);
+    // Set timeout for no answer
+    setTimeout(() => {
+      if (callStatus === "calling" && isCallInitiator) {
+        endCall();
+        alert("No answer from user");
+      }
+    }, 30000);
+  };
 
-    const isSelectedUserOnline = selectedConversation && onlineUsers.includes(selectedConversation._id);
+  // 🔥 2. HANDLE INCOMING CALLS
+  useEffect(() => {
+    if (!socket) return;
 
-    // Get user from localStorage
-    useEffect(() => {
-        const userData = localStorage.getItem("chat-user");
-        if (userData) {
-            try {
-                setUser(JSON.parse(userData));
-            } catch (e) {
-                console.error("Error parsing user from localStorage", e);
-            }
-        }
-    }, []);
-
-    // Initialize WebRTC for calls - SIMPLIFIED AND WORKING
-    const initializeWebRTC = async (callType, isCaller = false) => {
-        try {
-            console.log("Initializing WebRTC for", callType, "call. Is caller:", isCaller);
-            
-            // Get user media
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: callType === 'video',
-                audio: true
-            });
-            
-            setLocalStream(stream);
-            if (localVideoRef.current) {
-                localVideoRef.current.srcObject = stream;
-            }
-
-            // Create peer connection with proper configuration
-            const configuration = {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ]
-            };
-
-            peerConnection.current = new RTCPeerConnection(configuration);
-
-            // Add local stream tracks
-            stream.getTracks().forEach(track => {
-                peerConnection.current.addTrack(track, stream);
-            });
-
-            // Handle remote stream
-            peerConnection.current.ontrack = (event) => {
-                console.log("Received remote track:", event.track.kind);
-                const remoteStream = event.streams[0];
-                setRemoteStream(remoteStream);
-                if (remoteVideoRef.current) {
-                    remoteVideoRef.current.srcObject = remoteStream;
-                    // Auto-play the remote video
-                    remoteVideoRef.current.play().catch(e => console.log("Remote play error:", e));
-                }
-            };
-
-            // Handle ICE candidates
-            peerConnection.current.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit("webrtc-ice-candidate", {
-                        to: selectedConversation._id,
-                        candidate: event.candidate
-                    });
-                }
-            };
-
-            // Handle connection state
-            peerConnection.current.onconnectionstatechange = () => {
-                console.log("Connection state:", peerConnection.current.connectionState);
-                if (peerConnection.current.connectionState === 'connected') {
-                    console.log("✅ WebRTC connection established!");
-                    toast.success("Call connected");
-                }
-            };
-
-            // If caller, create offer
-            if (isCaller) {
-                const offer = await peerConnection.current.createOffer();
-                await peerConnection.current.setLocalDescription(offer);
-                socket.emit("webrtc-offer", {
-                    to: selectedConversation._id,
-                    offer: offer
-                });
-            }
-
-        } catch (error) {
-            console.error("Error in WebRTC initialization:", error);
-            toast.error("Failed to start call");
-            endCallCleanup();
-        }
+    const handleIncomingCall = (data) => {
+      setIncomingCall(data);
     };
 
-    // Socket event handlers
-    useEffect(() => {
-        if (!socket || !selectedConversation) return;
-
-        const handleIncomingCall = (data) => {
-            console.log("Incoming call:", data);
-            endCallCleanup();
-            
-            setCallState({
-                isReceivingCall: true,
-                isCalling: false,
-                callType: data.callType,
-                caller: data.from,
-                receiver: data.to,
-                callId: data.callId,
-                status: 'incoming'
-            });
-
-            callTimeoutRef.current = setTimeout(() => {
-                if (callState.status === 'incoming') {
-                    rejectCall();
-                }
-            }, 30000);
-        };
-
-        const handleCallAccepted = async (data) => {
-            console.log("Call accepted");
-            clearTimeout(callTimeoutRef.current);
-            setCallState(prev => ({ ...prev, isCalling: false, status: 'active' }));
-            await initializeWebRTC(callState.callType, true);
-        };
-
-        const handleCallRejected = (data) => {
-            console.log("Call rejected");
-            clearTimeout(callTimeoutRef.current);
-            toast.info("Call rejected");
-            endCallCleanup();
-        };
-
-        const handleCallEnded = (data) => {
-            console.log("Call ended");
-            clearTimeout(callTimeoutRef.current);
-            toast.info("Call ended");
-            endCallCleanup();
-        };
-
-        // WebRTC signaling handlers
-        const handleWebRTCOffer = async (data) => {
-            console.log("Received WebRTC offer");
-            await initializeWebRTC(callState.callType, false);
-            
-            if (peerConnection.current) {
-                await peerConnection.current.setRemoteDescription(data.offer);
-                const answer = await peerConnection.current.createAnswer();
-                await peerConnection.current.setLocalDescription(answer);
-                
-                socket.emit("webrtc-answer", {
-                    to: data.from,
-                    answer: answer
-                });
-            }
-        };
-
-        const handleWebRTCAnswer = async (data) => {
-            console.log("Received WebRTC answer");
-            if (peerConnection.current) {
-                await peerConnection.current.setRemoteDescription(data.answer);
-            }
-        };
-
-        const handleWebRTCIceCandidate = async (data) => {
-            if (peerConnection.current && data.candidate) {
-                await peerConnection.current.addIceCandidate(data.candidate);
-            }
-        };
-
-        // Event listeners
-        socket.on("incomingCall", handleIncomingCall);
-        socket.on("callAccepted", handleCallAccepted);
-        socket.on("callRejected", handleCallRejected);
-        socket.on("callEnded", handleCallEnded);
-        socket.on("webrtc-offer", handleWebRTCOffer);
-        socket.on("webrtc-answer", handleWebRTCAnswer);
-        socket.on("webrtc-ice-candidate", handleWebRTCIceCandidate);
-
-        return () => {
-            socket.off("incomingCall", handleIncomingCall);
-            socket.off("callAccepted", handleCallAccepted);
-            socket.off("callRejected", handleCallRejected);
-            socket.off("callEnded", handleCallEnded);
-            socket.off("webrtc-offer", handleWebRTCOffer);
-            socket.off("webrtc-answer", handleWebRTCAnswer);
-            socket.off("webrtc-ice-candidate", handleWebRTCIceCandidate);
-            clearTimeout(callTimeoutRef.current);
-        };
-    }, [socket, selectedConversation, callState]);
-
-    // Start a new call
-    const initiateCall = (callType) => {
-        if (!selectedConversation || !isSelectedUserOnline) {
-            toast.error("User is offline");
-            return;
-        }
-
-        const callData = {
-            from: user._id,
-            to: selectedConversation._id,
-            callType: callType,
-            callerName: user.fullName
-        };
-
-        const newCallId = `${user._id}-${selectedConversation._id}-${Date.now()}`;
-        
-        endCallCleanup();
-        
-        setCallState({
-            isCalling: true,
-            isReceivingCall: false,
-            callType: callType,
-            caller: user._id,
-            receiver: selectedConversation._id,
-            callId: newCallId,
-            status: 'calling'
-        });
-
-        socket.emit("initiateCall", callData);
-
-        callTimeoutRef.current = setTimeout(() => {
-            if (callState.status === 'calling') {
-                toast.info("No answer from user");
-                endCallCleanup();
-            }
-        }, 30000);
+    const handleCallAccepted = (data) => {
+      if (isCallInitiator && isCallActive) {
+        setCallStatus("connected");
+      }
     };
 
-    // Accept incoming call
-    const acceptCall = async () => {
-        console.log("Accepting call");
-        clearTimeout(callTimeoutRef.current);
-        
-        socket.emit("acceptCall", {
-            callId: callState.callId,
-            to: callState.caller,
-            from: user._id
-        });
-        
-        setCallState(prev => ({ ...prev, isReceivingCall: false, status: 'active' }));
-        await initializeWebRTC(callState.callType, false);
+    const handleCallRejected = (data) => {
+      if (isCallInitiator) {
+        endCall();
+        alert("Call was rejected");
+      }
     };
 
-    // Reject incoming call
-    const rejectCall = () => {
-        clearTimeout(callTimeoutRef.current);
-        socket.emit("rejectCall", {
-            callId: callState.callId,
-            to: callState.caller,
-            from: user._id,
-            reason: "User rejected the call"
-        });
-        endCallCleanup();
+    const handleCallEnded = (data) => {
+      endCall();
+      if (!isCallInitiator) {
+        alert("Call ended");
+      }
     };
 
-    // End call
-    const endCall = () => {
-        if (callState.callId) {
-            socket.emit("endCall", {
-                callId: callState.callId,
-                to: selectedConversation._id,
-                from: user._id
-            });
-        }
-        endCallCleanup();
+    socket.on("incomingCall", handleIncomingCall);
+    socket.on("callAccepted", handleCallAccepted);
+    socket.on("callRejected", handleCallRejected);
+    socket.on("callEnded", handleCallEnded);
+
+    return () => {
+      socket.off("incomingCall", handleIncomingCall);
+      socket.off("callAccepted", handleCallAccepted);
+      socket.off("callRejected", handleCallRejected);
+      socket.off("callEnded", handleCallEnded);
     };
+  }, [socket, isCallInitiator, isCallActive]);
 
-    // Cleanup
-    const endCallCleanup = () => {
-        console.log("Cleaning up call");
-        
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            setLocalStream(null);
-        }
-        
-        if (peerConnection.current) {
-            peerConnection.current.close();
-            peerConnection.current = null;
-        }
+  // 🔥 3. ACCEPT CALL
+  const acceptCall = () => {
+    if (!incomingCall) return;
 
-        setRemoteStream(null);
-        clearTimeout(callTimeoutRef.current);
+    setCallType(incomingCall.callType);
+    setIsCallActive(true);
+    setIsCallInitiator(false);
+    setCallStatus("connected");
+    setIncomingCall(null);
 
-        setCallState({
-            isCalling: false,
-            isReceivingCall: false,
-            callType: null,
-            caller: null,
-            receiver: null,
-            callId: null,
-            status: 'idle'
-        });
+    socket.emit("acceptCall", {
+      callerId: incomingCall.caller._id,
+      roomID: incomingCall.roomID
+    });
+  };
 
-        setIsMuted(false);
-        setIsVideoOff(false);
-        setIsSpeakerOn(true);
-    };
+  // 🔥 4. REJECT CALL
+  const rejectCall = () => {
+    if (!incomingCall) return;
 
-    // Toggle controls
-    const toggleMute = () => {
-        if (localStream) {
-            const audioTracks = localStream.getAudioTracks();
-            audioTracks.forEach(track => {
-                track.enabled = !track.enabled;
-            });
-            setIsMuted(!isMuted);
-        }
-    };
+    socket.emit("rejectCall", {
+      callerId: incomingCall.caller._id
+    });
+    
+    setIncomingCall(null);
+  };
 
-    const toggleVideo = () => {
-        if (localStream) {
-            const videoTracks = localStream.getVideoTracks();
-            videoTracks.forEach(track => {
-                track.enabled = !track.enabled;
-            });
-            setIsVideoOff(!isVideoOff);
-        }
-    };
+  // 🔥 5. END CALL
+  const endCall = () => {
+    setIsCallActive(false);
+    setCallType(null);
+    setIsCallInitiator(false);
+    setCallStatus("");
+    setIncomingCall(null);
+    
+    if (selectedConversation) {
+      socket.emit("endCall", {
+        userToCall: selectedConversation._id
+      });
+    }
+  };
 
-    const toggleSpeaker = () => {
-        if (remoteVideoRef.current) {
-            const newSpeakerState = !isSpeakerOn;
-            setIsSpeakerOn(newSpeakerState);
-            remoteVideoRef.current.volume = newSpeakerState ? 1 : 0;
-        }
-    };
+  // 🔥 6. SIMPLIFIED ZEGOCLOUD INITIALIZATION (Frontend only)
+  const initializeCall = (element) => {
+    if (!selectedConversation || !user || !isCallActive || !element) return;
 
-    return (
-        <div className="blur-bg">
-            <div className="message-container">
-                {!selectedConversation ? (
-                    <NoChatSelected />
-                ) : (
-                    <div className="chat-panel">
-                        <div className="chat-header">
-                            <button className="back-button" onClick={onBack}>
-                                <IoArrowBack size={20} />
-                            </button>
+    const roomID = incomingCall ? incomingCall.roomID : `chat_${[user._id, selectedConversation._id].sort().join('_')}`;
+    
+    try {
+      // 🔥 Generate token directly in frontend
+      const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+        ZEGO_CONFIG.appID,
+        ZEGO_CONFIG.serverSecret,
+        roomID,
+        user._id,
+        user.username || "User"
+      );
 
-                            <div className="chat-with">
-                                <span className="chat-label">Chatting with:</span>
-                                <span className="chat-name">{selectedConversation.fullName}</span>
-                                <span className={`chat-status ${isSelectedUserOnline ? "online1" : "offline1"}`}>
-                                    {isSelectedUserOnline ? "Online" : "Offline"}
-                                </span>
-                            </div>
+      // Create ZEGO instance
+      const zp = ZegoUIKitPrebuilt.create(kitToken);
+      
+      // Join room
+      zp.joinRoom({
+        container: element,
+        scenario: {
+          mode: ZegoUIKitPrebuilt.OneONoneCall,
+        },
+        showPreJoinView: false,
+        turnOnMicrophoneWhenJoining: callType === 'audio' || callType === 'video',
+        turnOnCameraWhenJoining: callType === 'video',
+        onLeaveRoom: () => {
+          console.log("User left the call");
+          endCall();
+        },
+      });
+      
+    } catch (error) {
+      console.error('Failed to initialize call:', error);
+      alert('Failed to start call. Please try again.');
+      endCall();
+    }
+  };
 
-                            {callState.status === 'idle' && (
-                                <div className="call-buttons">
-                                    <button 
-                                        className="call-btn video-call"
-                                        onClick={() => initiateCall('video')}
-                                        disabled={!isSelectedUserOnline}
-                                    >
-                                        <FaVideo size={18} />
-                                    </button>
-                                    <button 
-                                        className="call-btn audio-call"
-                                        onClick={() => initiateCall('audio')}
-                                        disabled={!isSelectedUserOnline}
-                                    >
-                                        <FaPhone size={18} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="messages">
-                            <Messages />
-                        </div>
-
-                        <div className="message-input">
-                            <MessageInput />
-                        </div>
-                    </div>
-                )}
-
-                <CallModal 
-                    callState={callState}
-                    selectedConversation={selectedConversation}
-                    onAcceptCall={acceptCall}
-                    onRejectCall={rejectCall}
-                    onEndCall={endCall}
-                    localStream={localStream}
-                    remoteStream={remoteStream}
-                    isMuted={isMuted}
-                    isVideoOff={isVideoOff}
-                    isSpeakerOn={isSpeakerOn}
-                    onToggleMute={toggleMute}
-                    onToggleVideo={toggleVideo}
-                    onToggleSpeaker={toggleSpeaker}
-                    localVideoRef={localVideoRef}
-                    remoteVideoRef={remoteVideoRef}
-                />
-
-                <ToastContainer
-                    position="top-right"
-                    autoClose={3000}
-                    hideProgressBar={false}
-                    newestOnTop={false}
-                    closeOnClick
-                    rtl={false}
-                    pauseOnFocusLoss
-                    draggable
-                    pauseOnHover
-                    theme="colored"
-                />
+  return (
+    <div className="blur-bg">
+      {/* INCOMING CALL NOTIFICATION */}
+      {incomingCall && !isCallActive && (
+        <div className="incoming-call-notification">
+          <div className="notification-content">
+            <div className="caller-info">
+              <img 
+                src={incomingCall.caller.profilePic || "/default-avatar.png"} 
+                alt="Caller" 
+                className="caller-avatar"
+              />
+              <div className="caller-details">
+                <h3>{incomingCall.caller.fullName}</h3>
+                <p>Incoming {incomingCall.callType} call...</p>
+              </div>
             </div>
+            <div className="call-actions">
+              <button className="accept-btn" onClick={acceptCall} title="Accept Call">
+                <FaPhoneAlt size={20} />
+              </button>
+              <button className="reject-btn" onClick={rejectCall} title="Reject Call">
+                <FaPhoneSlash size={20} />
+              </button>
+            </div>
+          </div>
         </div>
-    );
+      )}
+
+      {/* CALLING STATUS MODAL */}
+      {isCallActive && callStatus === "calling" && isCallInitiator && (
+        <div className="calling-modal-overlay">
+          <div className="calling-modal">
+            <div className="calling-content">
+              <div className="calling-spinner"></div>
+              <h3>Calling {selectedConversation?.fullName}...</h3>
+              <p>Waiting for user to answer</p>
+              <button className="end-call-button" onClick={endCall}>
+                <FaPhoneSlash size={16} />
+                End Call
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACTIVE CALL MODAL */}
+      {isCallActive && callStatus === "connected" && (
+        <div className="call-modal-overlay">
+          <div className="call-modal">
+            <div className="call-header">
+              <span className="call-with">
+                {callType === 'video' ? 'Video Call' : 'Audio Call'} with {selectedConversation?.fullName}
+              </span>
+            </div>
+            <div className="call-container">
+              <div 
+                ref={initializeCall}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </div>
+            <button className="end-call-button" onClick={endCall}>
+              <FaPhoneSlash size={20} />
+              End Call
+            </button>
+          </div>
+        </div>
+      )}
+      
+      <div className="message-container">
+        {!selectedConversation ? (
+          <NoChatSelected />
+        ) : (
+          <div className="chat-panel">
+            {/* Header */}
+            <div className="chat-header">
+              <button className="back-button" onClick={onBack}>
+                <IoArrowBack size={20} />
+              </button>
+
+              <div className="chat-with">
+                <span className="chat-label">Chatting with:</span>
+                <span className="chat-name">{selectedConversation.fullName}</span>
+                <span className={`chat-status ${isSelectedUserOnline ? "online1" : "offline1"}`}>
+                  {isSelectedUserOnline ? "Online" : "Offline"}
+                </span>
+                {isTyping && (
+                  <div className="typing-indicator">
+                    {selectedConversation.fullName} is typing...
+                  </div>
+                )}
+              </div>
+
+              {/* Call Buttons */}
+              <div className="call-buttons">
+                {!isCallActive ? (
+                  <>
+                    <button 
+                      className="call-button audio-call"
+                      onClick={() => startCall('audio')}
+                      title="Audio Call"
+                      disabled={!isSelectedUserOnline}
+                    >
+                      <FaPhone size={16} />
+                    </button>
+                    <button 
+                      className="call-button video-call"
+                      onClick={() => startCall('video')}
+                      title="Video Call"
+                      disabled={!isSelectedUserOnline}
+                    >
+                      <FaVideo size={16} />
+                    </button>
+                  </>
+                ) : (
+                  <button className="call-button end-call" onClick={endCall}>
+                    <FaPhoneSlash size={16} />
+                  </button>
+                )}
+              </div>
+
+              {/* Logged in user */}
+              {user && (
+                <div className="user-info">
+                  <div className="user-avatar-container">
+                    <img
+                      src={user.profilePic || "/default-avatar.png"}
+                      alt="Profile"
+                      className="user-avatar"
+                    />
+                    {isLoggedUserOnline && <span className="online-dot"></span>}
+                  </div>
+                  <span className="logged-user">{user.username}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Messages */}
+            <div className="messages">
+              <Messages />
+            </div>
+
+            {/* Input */}
+            <div className="message-input">
+              <MessageInput />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 const NoChatSelected = () => {
-    const { authUser } = useAuthContext();
-    return (
-        <div className="no-chat-container">
-            <div className="no-chat-content">
-                <p>Welcome 👋 {authUser.fullName} ❄</p>
-                <p>Select a chat to start messaging</p>
-                <TiMessages className="no-chat-icon" />
-            </div>
-        </div>
-    );
+  const { authUser } = useAuthContext();
+  return (
+    <div className="no-chat-container">
+      <div className="no-chat-content">
+        <p>Welcome 👋 {authUser.fullName} ❄</p>
+        <p>Select a chat to start messaging</p>
+        <TiMessages className="no-chat-icon" />
+      </div>
+    </div>
+  );
 };
 
 export default MessageContainer;
