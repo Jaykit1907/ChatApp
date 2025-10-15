@@ -26,19 +26,20 @@ const MessageContainer = ({ onBack }) => {
         caller: null,
         receiver: null,
         callId: null,
-        status: 'idle' // 'idle', 'calling', 'active', 'ended'
+        status: 'idle'
     });
     const [localStream, setLocalStream] = useState(null);
     const [remoteStream, setRemoteStream] = useState(null);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
-    const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+    const [isSpeakerOn, setIsSpeakerOn] = useState(true); // Default to speaker ON
 
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
     const peerConnection = useRef(null);
     const callTimeoutRef = useRef(null);
     const audioContextRef = useRef(null);
+    const gainNodeRef = useRef(null); // Store gain node separately
 
     const isSelectedUserOnline = selectedConversation && onlineUsers.includes(selectedConversation._id);
 
@@ -100,7 +101,14 @@ const MessageContainer = ({ onBack }) => {
                 setRemoteStream(remoteStream);
                 if (remoteVideoRef.current) {
                     remoteVideoRef.current.srcObject = remoteStream;
+                    
+                    // Initialize audio with current speaker state
                     initializeAudioContext(remoteVideoRef.current);
+                    
+                    // Auto-play the audio
+                    remoteVideoRef.current.play().catch(error => {
+                        console.log("Auto-play prevented, user interaction required:", error);
+                    });
                 }
             };
 
@@ -155,21 +163,30 @@ const MessageContainer = ({ onBack }) => {
         endCallCleanup();
     };
 
-    // Initialize Audio Context for speaker control
+    // Initialize Audio Context for speaker control - FIXED VERSION
     const initializeAudioContext = (audioElement) => {
         try {
+            // Create new audio context
             audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create gain node
+            gainNodeRef.current = audioContextRef.current.createGain();
+            
+            // Create media element source
             const source = audioContextRef.current.createMediaElementSource(audioElement);
-            const gainNode = audioContextRef.current.createGain();
             
-            source.connect(gainNode);
-            gainNode.connect(audioContextRef.current.destination);
+            // Connect: source → gain node → destination
+            source.connect(gainNodeRef.current);
+            gainNodeRef.current.connect(audioContextRef.current.destination);
             
-            audioElement.gainNode = gainNode;
-            gainNode.gain.value = isSpeakerOn ? 1 : 0;
+            // Set initial volume based on speaker state
+            gainNodeRef.current.gain.value = isSpeakerOn ? 1 : 0;
+            
+            console.log("✅ Audio context initialized. Speaker:", isSpeakerOn ? "ON" : "OFF");
             
         } catch (error) {
-            console.log("Audio context not supported");
+            console.log("❌ Audio context not supported, using fallback:", error);
+            // Fallback to regular volume control
             audioElement.volume = isSpeakerOn ? 1 : 0;
         }
     };
@@ -245,34 +262,24 @@ const MessageContainer = ({ onBack }) => {
             endCallCleanup();
         };
 
-        // FIXED: This handles when the OTHER user ends the call
         const handleCallEnded = (data) => {
             console.log("🔴 CALL ENDED BY OTHER USER:", data);
-            console.log("🔴 Current call state:", callState);
-            
             clearTimeout(callTimeoutRef.current);
             
             const reason = data.reason || "Call ended";
-            
             if (reason.includes("disconnected") || reason.includes("timeout")) {
                 toast.info("User disconnected");
             } else {
                 toast.info("Call ended");
             }
             
-            // This will hide the call modal
             endCallCleanup();
         };
 
-        // FIXED: This handles when WE end the call
         const handleCallEndedSelf = (data) => {
             console.log("🔴 CALL ENDED BY YOU:", data);
-            console.log("🔴 Current call state:", callState);
-            
             clearTimeout(callTimeoutRef.current);
             toast.info("Call ended");
-            
-            // This will hide the call modal
             endCallCleanup();
         };
 
@@ -326,8 +333,8 @@ const MessageContainer = ({ onBack }) => {
         socket.on("incomingCall", handleIncomingCall);
         socket.on("callAccepted", handleCallAccepted);
         socket.on("callRejected", handleCallRejected);
-        socket.on("callEnded", handleCallEnded); // When other user ends call
-        socket.on("callEndedSelf", handleCallEndedSelf); // When we end call
+        socket.on("callEnded", handleCallEnded);
+        socket.on("callEndedSelf", handleCallEndedSelf);
         socket.on("webrtc-offer", handleWebRTCOffer);
         socket.on("webrtc-answer", handleWebRTCAnswer);
         socket.on("webrtc-ice-candidate", handleWebRTCIceCandidate);
@@ -433,7 +440,6 @@ const MessageContainer = ({ onBack }) => {
     // End ongoing call
     const endCall = () => {
         console.log("🟡 USER CLICKED END CALL");
-        console.log("🟡 Current call state:", callState);
         
         if (callState.callId) {
             console.log("🟡 Sending endCall to server with callId:", callState.callId);
@@ -443,7 +449,6 @@ const MessageContainer = ({ onBack }) => {
                 from: user._id
             });
             
-            // Show ending message but don't cleanup immediately
             toast.info("Ending call...");
         } else {
             console.log("🟡 No callId found, cleaning up locally");
@@ -452,9 +457,9 @@ const MessageContainer = ({ onBack }) => {
         }
     };
 
-    // FIXED: Cleanup call resources - This will hide the call modal
+    // Cleanup call resources
     const endCallCleanup = () => {
-        console.log("🧹 CLEANING UP CALL - HIDING MODAL");
+        console.log("🧹 CLEANING UP CALL");
         
         // Stop camera and microphone
         if (localStream) {
@@ -475,6 +480,7 @@ const MessageContainer = ({ onBack }) => {
             audioContextRef.current.close();
             audioContextRef.current = null;
         }
+        gainNodeRef.current = null;
 
         // Clear remote stream
         setRemoteStream(null);
@@ -482,7 +488,7 @@ const MessageContainer = ({ onBack }) => {
         // Clear timeout
         clearTimeout(callTimeoutRef.current);
 
-        // FIXED: This resets ALL call state which will hide the CallModal
+        // Reset call state completely
         setCallState({
             isCalling: false,
             isReceivingCall: false,
@@ -490,12 +496,12 @@ const MessageContainer = ({ onBack }) => {
             caller: null,
             receiver: null,
             callId: null,
-            status: 'idle' // This is the key - 'idle' means no active call
+            status: 'idle'
         });
 
         setIsMuted(false);
         setIsVideoOff(false);
-        setIsSpeakerOn(true);
+        setIsSpeakerOn(true); // Reset to speaker ON for next call
     };
 
     // Toggle microphone mute
@@ -522,24 +528,29 @@ const MessageContainer = ({ onBack }) => {
         }
     };
 
-    // Toggle speaker on/off
+    // Toggle speaker on/off - FIXED VERSION
     const toggleSpeaker = () => {
-        if (remoteVideoRef.current) {
-            const newSpeakerState = !isSpeakerOn;
-            setIsSpeakerOn(newSpeakerState);
-            
-            try {
-                if (remoteVideoRef.current.gainNode) {
-                    remoteVideoRef.current.gainNode.gain.value = newSpeakerState ? 1 : 0;
-                } else {
-                    remoteVideoRef.current.volume = newSpeakerState ? 1 : 0;
-                }
-                
-                toast.info(newSpeakerState ? "Speaker on" : "Speaker off");
-            } catch (error) {
-                console.log("Volume control not supported");
-                toast.info("Volume control not supported on this device");
+        const newSpeakerState = !isSpeakerOn;
+        console.log(`🔊 Toggling speaker: ${newSpeakerState ? 'ON' : 'OFF'}`);
+        
+        setIsSpeakerOn(newSpeakerState);
+        
+        try {
+            // Use Web Audio API if available
+            if (gainNodeRef.current) {
+                gainNodeRef.current.gain.value = newSpeakerState ? 1 : 0;
+                console.log("✅ Using Web Audio API for volume control");
+            } 
+            // Fallback to regular volume control
+            else if (remoteVideoRef.current) {
+                remoteVideoRef.current.volume = newSpeakerState ? 1 : 0;
+                console.log("✅ Using regular volume control");
             }
+            
+            toast.info(newSpeakerState ? "Speaker on" : "Speaker off");
+        } catch (error) {
+            console.log("❌ Volume control error:", error);
+            toast.info("Volume control not available");
         }
     };
 
@@ -616,7 +627,7 @@ const MessageContainer = ({ onBack }) => {
                     </div>
                 )}
 
-                {/* Call Modal - This will automatically hide when callState.status is 'idle' */}
+                {/* Call Modal */}
                 <CallModal 
                     callState={callState}
                     selectedConversation={selectedConversation}
@@ -627,7 +638,7 @@ const MessageContainer = ({ onBack }) => {
                     remoteStream={remoteStream}
                     isMuted={isMuted}
                     isVideoOff={isVideoOff}
-                    isSpeakerOn={isSpeakerOn}
+                    isSpeakerOn={isSpeakerOn} // Pass the correct state
                     onToggleMute={toggleMute}
                     onToggleVideo={toggleVideo}
                     onToggleSpeaker={toggleSpeaker}
