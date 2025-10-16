@@ -14,22 +14,28 @@ export const SocketContextProvider = ({ children }) => {
 	const [socket, setSocket] = useState(null);
 	const [onlineUsers, setOnlineUsers] = useState([]);
 	const { authUser } = useAuthContext();
-	const { setTypingUsers } = useConversation(); // ✅ FIX: moved here
+	const { setTypingUsers } = useConversation(); // ✅ ADDED for Zustand typing state
 
+	// ✅ Create or destroy socket when authUser changes
 	useEffect(() => {
 		if (authUser) {
-			const socket = io(BASE_URL, {
-				transports: ["polling"], // or ["websocket"] based on your needs
+			const socketInstance = io(BASE_URL, {
+				transports: ["polling"], // or ["websocket"] depending on backend
 				query: { userId: authUser._id },
 			});
 
-			setSocket(socket);
+			setSocket(socketInstance);
 
-			socket.on("getOnlineUsers", (users) => {
+			// ✅ Update online users
+			socketInstance.on("getOnlineUsers", (users) => {
 				setOnlineUsers(users);
 			});
 
-			return () => socket.close();
+			// Cleanup on logout or unmount
+			return () => {
+				socketInstance.close();
+				setSocket(null);
+			};
 		} else {
 			if (socket) {
 				socket.close();
@@ -38,25 +44,27 @@ export const SocketContextProvider = ({ children }) => {
 		}
 	}, [authUser]);
 
+	// ✅ Listen for typing indicators
 	useEffect(() => {
 		if (!socket) return;
 
 		const handleTyping = (senderId) => {
-			setTypingUsers(senderId, true);
+			setTypingUsers(senderId, true); // user started typing
 		};
 
 		const handleStopTyping = (senderId) => {
-			setTypingUsers(senderId, false);
+			setTypingUsers(senderId, false); // user stopped typing
 		};
 
 		socket.on("userTyping", handleTyping);
 		socket.on("userStoppedTyping", handleStopTyping);
 
+		// Cleanup listeners to avoid duplicates
 		return () => {
 			socket.off("userTyping", handleTyping);
 			socket.off("userStoppedTyping", handleStopTyping);
 		};
-	}, [socket, setTypingUsers]); // include setTypingUsers as a dependency
+	}, [socket, setTypingUsers]);
 
 	return (
 		<SocketContext.Provider value={{ socket, onlineUsers }}>

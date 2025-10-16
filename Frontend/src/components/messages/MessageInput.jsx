@@ -109,7 +109,7 @@ const MessageInput = () => {
       {/* Language icon + dropdown */}
       <div className="relative mr-2" ref={langRef}>
         <MdTranslate
-          className="cursor-pointer text-white text-2xl hover:scale-125 transition-transform duration-200"
+          className="cursor-pointer text-black text-2xl hover:scale-125 transition-transform duration-200"
           onClick={() => setShowLanguagePopup(!showLanguagePopup)}
         />
 

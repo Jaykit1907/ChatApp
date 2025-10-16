@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import useConversation from "../../zustand/useConversation";
 import MessageInput from "./MessageInput";
 import Messages from "./Messages";
@@ -12,12 +12,15 @@ import "./MessageContainer.css";
 // 🔥 Import ZEGOCLOUD directly for frontend
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 
+// 🔥 Import ringtone
+import ringtone from "../../assets/sounds/ringtone.mp3";
+
 const MessageContainer = ({ onBack }) => {
   const [user, setUser] = useState(null);
   const { selectedConversation } = useConversation();
   const { socket, onlineUsers } = useSocketContext();
   const [isTyping, setIsTyping] = useState(false);
-  
+
   // Call states
   const [isCallActive, setIsCallActive] = useState(false);
   const [callType, setCallType] = useState(null);
@@ -25,14 +28,20 @@ const MessageContainer = ({ onBack }) => {
   const [isCallInitiator, setIsCallInitiator] = useState(false);
   const [callStatus, setCallStatus] = useState("");
 
-  const isSelectedUserOnline = selectedConversation && onlineUsers.includes(selectedConversation._id);
+  // 🔥 New: Zego instance reference for cleanup
+  const zegoInstance = useRef(null);
+
+  // 🔥 New: Audio ref for ringtone
+  const audioRef = useRef(null);
+
+  const isSelectedUserOnline =
+    selectedConversation && onlineUsers.includes(selectedConversation._id);
   const isLoggedUserOnline = user && onlineUsers.includes(user._id);
 
-const ZEGO_CONFIG = {
-  appID: Number(import.meta.env.VITE_ZEGO_APP_ID),
-  serverSecret: import.meta.env.VITE_ZEGO_SERVER_SECRET
-};
-
+  const ZEGO_CONFIG = {
+    appID: Number(import.meta.env.VITE_ZEGO_APP_ID),
+    serverSecret: import.meta.env.VITE_ZEGO_SERVER_SECRET,
+  };
 
   useEffect(() => {
     const userData = localStorage.getItem("chat-user");
@@ -92,7 +101,7 @@ const ZEGO_CONFIG = {
       userToCall: selectedConversation._id,
       callType: type,
       caller: user,
-      roomID: `chat_${[user._id, selectedConversation._id].sort().join('_')}`
+      roomID: `chat_${[user._id, selectedConversation._id].sort().join("_")}`,
     });
 
     // Set timeout for no answer
@@ -104,29 +113,51 @@ const ZEGO_CONFIG = {
     }, 30000);
   };
 
-  // 🔥 2. HANDLE INCOMING CALLS
+  // 🔥 2. HANDLE INCOMING CALLS + RINGTONE
   useEffect(() => {
     if (!socket) return;
 
+    const playRingtone = () => {
+      if (audioRef.current) {
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((error) => {
+            console.warn("Autoplay blocked:", error);
+          });
+        }
+      }
+    };
+
+    const stopRingtone = () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    };
+
     const handleIncomingCall = (data) => {
       setIncomingCall(data);
+      playRingtone();
     };
 
     const handleCallAccepted = (data) => {
       if (isCallInitiator && isCallActive) {
         setCallStatus("connected");
+        stopRingtone();
       }
     };
 
     const handleCallRejected = (data) => {
       if (isCallInitiator) {
         endCall();
+        stopRingtone();
         alert("Call was rejected");
       }
     };
 
     const handleCallEnded = (data) => {
       endCall();
+      stopRingtone();
       if (!isCallInitiator) {
         alert("Call ended");
       }
@@ -155,9 +186,15 @@ const ZEGO_CONFIG = {
     setCallStatus("connected");
     setIncomingCall(null);
 
+    // Stop ringtone
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
     socket.emit("acceptCall", {
       callerId: incomingCall.caller._id,
-      roomID: incomingCall.roomID
+      roomID: incomingCall.roomID,
     });
   };
 
@@ -166,35 +203,64 @@ const ZEGO_CONFIG = {
     if (!incomingCall) return;
 
     socket.emit("rejectCall", {
-      callerId: incomingCall.caller._id
+      callerId: incomingCall.caller._id,
     });
-    
+
+    // Stop ringtone
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
     setIncomingCall(null);
   };
 
-  // 🔥 5. END CALL
+  // 🔥 5. END CALL (fixed with cleanup)
   const endCall = () => {
     setIsCallActive(false);
     setCallType(null);
     setIsCallInitiator(false);
     setCallStatus("");
     setIncomingCall(null);
-    
+
+    // ✅ Clean up Zego instance
+    if (zegoInstance.current) {
+      try {
+        zegoInstance.current.destroy();
+      } catch (e) {
+        console.warn("Error destroying Zego instance:", e);
+      }
+      zegoInstance.current = null;
+    }
+
+    // Stop ringtone
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
     if (selectedConversation) {
       socket.emit("endCall", {
-        userToCall: selectedConversation._id
+        userToCall: selectedConversation._id,
       });
     }
   };
 
-  // 🔥 6. SIMPLIFIED ZEGOCLOUD INITIALIZATION (Frontend only)
+  // 🔥 6. SIMPLIFIED ZEGOCLOUD INITIALIZATION (Frontend only, fixed)
   const initializeCall = (element) => {
     if (!selectedConversation || !user || !isCallActive || !element) return;
 
-    const roomID = incomingCall ? incomingCall.roomID : `chat_${[user._id, selectedConversation._id].sort().join('_')}`;
-    
+    const roomID = incomingCall
+      ? incomingCall.roomID
+      : `chat_${[user._id, selectedConversation._id].sort().join("_")}`;
+
     try {
-      // 🔥 Generate token directly in frontend
+      // ✅ Clean up any previous Zego instance before starting new call
+      if (zegoInstance.current) {
+        zegoInstance.current.destroy();
+        zegoInstance.current = null;
+      }
+
       const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
         ZEGO_CONFIG.appID,
         ZEGO_CONFIG.serverSecret,
@@ -203,41 +269,43 @@ const ZEGO_CONFIG = {
         user.username || "User"
       );
 
-      // Create ZEGO instance
       const zp = ZegoUIKitPrebuilt.create(kitToken);
-      
-      // Join room
+      zegoInstance.current = zp; // ✅ store instance
+
       zp.joinRoom({
         container: element,
         scenario: {
           mode: ZegoUIKitPrebuilt.OneONoneCall,
         },
         showPreJoinView: false,
-        turnOnMicrophoneWhenJoining: callType === 'audio' || callType === 'video',
-        turnOnCameraWhenJoining: callType === 'video',
+        turnOnMicrophoneWhenJoining:
+          callType === "audio" || callType === "video",
+        turnOnCameraWhenJoining: callType === "video",
         onLeaveRoom: () => {
           console.log("User left the call");
           endCall();
         },
       });
-      
     } catch (error) {
-      console.error('Failed to initialize call:', error);
-      alert('Failed to start call. Please try again.');
+      console.error("Failed to initialize call:", error);
+      alert("Failed to start call. Please try again.");
       endCall();
     }
   };
 
   return (
     <div className="blur-bg">
+      {/* 🔥 Ringtone Audio */}
+      <audio ref={audioRef} src={ringtone} loop />
+
       {/* INCOMING CALL NOTIFICATION */}
       {incomingCall && !isCallActive && (
         <div className="incoming-call-notification">
           <div className="notification-content">
             <div className="caller-info">
-              <img 
-                src={incomingCall.caller.profilePic || "/default-avatar.png"} 
-                alt="Caller" 
+              <img
+                src={incomingCall.caller.profilePic || "/default-avatar.png"}
+                alt="Caller"
                 className="caller-avatar"
               />
               <div className="caller-details">
@@ -246,10 +314,18 @@ const ZEGO_CONFIG = {
               </div>
             </div>
             <div className="call-actions">
-              <button className="accept-btn" onClick={acceptCall} title="Accept Call">
+              <button
+                className="accept-btn"
+                onClick={acceptCall}
+                title="Accept Call"
+              >
                 <FaPhoneAlt size={20} />
               </button>
-              <button className="reject-btn" onClick={rejectCall} title="Reject Call">
+              <button
+                className="reject-btn"
+                onClick={rejectCall}
+                title="Reject Call"
+              >
                 <FaPhoneSlash size={20} />
               </button>
             </div>
@@ -280,23 +356,17 @@ const ZEGO_CONFIG = {
           <div className="call-modal">
             <div className="call-header">
               <span className="call-with">
-                {callType === 'video' ? 'Video Call' : 'Audio Call'} with {selectedConversation?.fullName}
+                {callType === "video" ? "Video Call" : "Audio Call"} with{" "}
+                {selectedConversation?.fullName}
               </span>
             </div>
             <div className="call-container">
-              <div 
-                ref={initializeCall}
-                style={{ width: '100%', height: '100%' }}
-              />
+              <div ref={initializeCall} style={{ width: "100%", height: "100%" }} />
             </div>
-            <button className="end-call-button" onClick={endCall}>
-              <FaPhoneSlash size={20} />
-              End Call
-            </button>
           </div>
         </div>
       )}
-      
+
       <div className="message-container">
         {!selectedConversation ? (
           <NoChatSelected />
@@ -311,7 +381,11 @@ const ZEGO_CONFIG = {
               <div className="chat-with">
                 <span className="chat-label">Chatting with:</span>
                 <span className="chat-name">{selectedConversation.fullName}</span>
-                <span className={`chat-status ${isSelectedUserOnline ? "online1" : "offline1"}`}>
+                <span
+                  className={`chat-status ${
+                    isSelectedUserOnline ? "online1" : "offline1"
+                  }`}
+                >
                   {isSelectedUserOnline ? "Online" : "Offline"}
                 </span>
                 {isTyping && (
@@ -325,17 +399,17 @@ const ZEGO_CONFIG = {
               <div className="call-buttons">
                 {!isCallActive ? (
                   <>
-                    <button 
+                    <button
                       className="call-button audio-call"
-                      onClick={() => startCall('audio')}
+                      onClick={() => startCall("audio")}
                       title="Audio Call"
                       disabled={!isSelectedUserOnline}
                     >
                       <FaPhone size={16} />
                     </button>
-                    <button 
+                    <button
                       className="call-button video-call"
-                      onClick={() => startCall('video')}
+                      onClick={() => startCall("video")}
                       title="Video Call"
                       disabled={!isSelectedUserOnline}
                     >
@@ -348,21 +422,6 @@ const ZEGO_CONFIG = {
                   </button>
                 )}
               </div>
-
-              {/* Logged in user */}
-              {user && (
-                <div className="user-info">
-                  <div className="user-avatar-container">
-                    <img
-                      src={user.profilePic || "/default-avatar.png"}
-                      alt="Profile"
-                      className="user-avatar"
-                    />
-                    {isLoggedUserOnline && <span className="online-dot"></span>}
-                  </div>
-                  <span className="logged-user">{user.username}</span>
-                </div>
-              )}
             </div>
 
             {/* Messages */}

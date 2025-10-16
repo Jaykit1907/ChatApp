@@ -7,9 +7,10 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
 	cors: {
-		//origin: ["http://localhost:3000"],
-		origin:"https://chat-app-frontend-gules-chi.vercel.app",
-
+		origin: [
+			"http://localhost:3000",
+			"https://chat-app-frontend-gules-chi.vercel.app",
+		],
 		methods: ["GET", "POST"],
 		credentials: true,
 	},
@@ -32,59 +33,70 @@ io.on("connection", (socket) => {
 		socket.userId = userId;
 	}
 
+	// ✅ Send online users list to all clients
 	io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-	// Typing events
+	/* ==============================
+	   ✅ TYPING EVENTS
+	   ============================== */
 	socket.on("typing", ({ to }) => {
-		socket.to(userSocketMap[to]).emit("userTyping", socket.userId);
+		const receiverSocketId = userSocketMap[to];
+		if (receiverSocketId) {
+			// Send event to the receiver only
+			socket.to(receiverSocketId).emit("userTyping", socket.userId);
+			console.log(`✍️ ${socket.userId} is typing to ${to}`);
+		}
 	});
 
 	socket.on("stopTyping", ({ to }) => {
-		socket.to(userSocketMap[to]).emit("userStoppedTyping", socket.userId);
+		const receiverSocketId = userSocketMap[to];
+		if (receiverSocketId) {
+			socket.to(receiverSocketId).emit("userStoppedTyping", socket.userId);
+			console.log(`💬 ${socket.userId} stopped typing to ${to}`);
+		}
 	});
 
-	// 🔥 CALL EVENTS - Updated to match frontend
+	/* ==============================
+	   📞 CALL EVENTS
+	   ============================== */
 
 	// Call initiation
 	socket.on("callUser", (data) => {
 		const { userToCall, callType, caller, roomID } = data;
-		
+
 		const callId = `${caller._id}-${userToCall}-${Date.now()}`;
-		
-		// Store call information
+
 		activeCalls.set(callId, {
 			participants: [caller._id, userToCall],
-			callType: callType,
-			status: 'calling',
+			callType,
+			status: "calling",
 			caller: caller._id,
 			receiver: userToCall,
-			callId: callId,
-			roomID: roomID
+			callId,
+			roomID,
 		});
 
 		const receiverSocketId = getReceiverSocketId(userToCall);
 		if (receiverSocketId) {
 			socket.to(receiverSocketId).emit("incomingCall", {
-				callType: callType,
-				caller: caller,
-				roomID: roomID,
-				callId: callId
+				callType,
+				caller,
+				roomID,
+				callId,
 			});
-			console.log(`📞 Call initiated from ${caller.fullName} to ${userToCall}, Type: ${callType}`);
+			console.log(
+				`📞 Call initiated from ${caller.fullName} to ${userToCall}, Type: ${callType}`
+			);
 		} else {
-			// User is offline
 			activeCalls.delete(callId);
-			socket.emit("callEnded", {
-				reason: "User is offline"
-			});
+			socket.emit("callEnded", { reason: "User is offline" });
 		}
 	});
 
 	// Call acceptance
 	socket.on("acceptCall", (data) => {
 		const { callerId, roomID } = data;
-		
-		// Find the call by caller ID and room ID
+
 		let callIdToUpdate = null;
 		for (const [callId, callData] of activeCalls.entries()) {
 			if (callData.caller === callerId && callData.roomID === roomID) {
@@ -92,16 +104,14 @@ io.on("connection", (socket) => {
 				break;
 			}
 		}
-		
+
 		if (callIdToUpdate) {
 			const call = activeCalls.get(callIdToUpdate);
-			activeCalls.set(callIdToUpdate, { ...call, status: 'active' });
-			
+			activeCalls.set(callIdToUpdate, { ...call, status: "active" });
+
 			const callerSocketId = getReceiverSocketId(callerId);
 			if (callerSocketId) {
-				socket.to(callerSocketId).emit("callAccepted", {
-					roomID: roomID
-				});
+				socket.to(callerSocketId).emit("callAccepted", { roomID });
 				console.log(`✅ Call accepted by ${socket.userId}`);
 			}
 		}
@@ -110,22 +120,21 @@ io.on("connection", (socket) => {
 	// Call rejection
 	socket.on("rejectCall", (data) => {
 		const { callerId } = data;
-		
-		// Find calls by this caller
+
 		let callIdToDelete = null;
 		for (const [callId, callData] of activeCalls.entries()) {
-			if (callData.caller === callerId && callData.status === 'calling') {
+			if (callData.caller === callerId && callData.status === "calling") {
 				callIdToDelete = callId;
 				break;
 			}
 		}
-		
+
 		if (callIdToDelete) {
 			const call = activeCalls.get(callIdToDelete);
 			const callerSocketId = getReceiverSocketId(callerId);
 			if (callerSocketId) {
 				socket.to(callerSocketId).emit("callRejected", {
-					reason: "Call rejected"
+					reason: "Call rejected",
 				});
 				console.log(`❌ Call rejected by ${socket.userId}`);
 			}
@@ -136,45 +145,49 @@ io.on("connection", (socket) => {
 	// Call end
 	socket.on("endCall", (data) => {
 		const { userToCall } = data;
-		
-		// Find all calls involving these users
+
 		const callsToEnd = [];
 		for (const [callId, callData] of activeCalls.entries()) {
-			if (callData.participants.includes(socket.userId) && 
-				callData.participants.includes(userToCall)) {
+			if (
+				callData.participants.includes(socket.userId) &&
+				callData.participants.includes(userToCall)
+			) {
 				callsToEnd.push(callId);
 			}
 		}
-		
-		callsToEnd.forEach(callId => {
+
+		callsToEnd.forEach((callId) => {
 			const call = activeCalls.get(callId);
-			
-			// Notify the other participant
-			const otherParticipant = call.participants.find(id => id !== socket.userId);
+
+			const otherParticipant = call.participants.find(
+				(id) => id !== socket.userId
+			);
 			const otherSocketId = getReceiverSocketId(otherParticipant);
-			
+
 			if (otherSocketId) {
 				socket.to(otherSocketId).emit("callEnded");
 				console.log(`📵 Call ended by ${socket.userId}`);
 			}
-			
+
 			activeCalls.delete(callId);
 		});
 	});
 
+	/* ==============================
+	   📴 DISCONNECT HANDLING
+	   ============================== */
 	socket.on("disconnect", () => {
 		console.log("User disconnected", socket.id);
-		
-		// Handle calls when user disconnects
+
+		// Handle ongoing calls
 		for (const [callId, callData] of activeCalls.entries()) {
 			if (callData.participants.includes(userId)) {
-				// Notify other participants
-				callData.participants.forEach(participantId => {
+				callData.participants.forEach((participantId) => {
 					if (participantId !== userId) {
 						const participantSocketId = getReceiverSocketId(participantId);
 						if (participantSocketId) {
 							socket.to(participantSocketId).emit("callEnded", {
-								reason: "User disconnected"
+								reason: "User disconnected",
 							});
 						}
 					}
