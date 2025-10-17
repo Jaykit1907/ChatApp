@@ -13,7 +13,7 @@ import "./MessageContainer.css";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 
 // 🔥 Import ringtone
-import ringtone from "../../assets/sounds/ringtone.mp3";
+import ringtone from "../../assets/sounds/ringtone2.mp3";
 
 const MessageContainer = ({ onBack }) => {
   const [user, setUser] = useState(null);
