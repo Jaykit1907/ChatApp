@@ -3,10 +3,10 @@ import Message from "../models/message.model.js";
 import Contact from "../models/contacts.model.js";
 import { getReceiverSocketId, io } from "../socket/socket.js";
 import User from "../models/user.model.js";
-import { Language } from "../models/userLanguage.js"; // Import the language model
+import { Language } from "../models/userLanguage.js"; 
 import translate from "translate";
 
-translate.engine = "google"; // ✅ Use Google engine
+translate.engine = "google"; 
 
 export const sendMessage = async (req, res) => {
   try {

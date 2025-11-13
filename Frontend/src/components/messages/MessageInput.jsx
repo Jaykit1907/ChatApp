@@ -87,10 +87,11 @@ const MessageInput = () => {
       });
 
       const data = await response.json();
+    
 
       if (response.ok) {
-        toast.success(data.message || `Language set to ${lang.name}`);
-        localStorage.setItem("language", JSON.stringify(lang)); // ✅ save whole object
+        toast.success(data.messag || `Language set to ${lang.name}`);
+        localStorage.setItem("language", JSON.stringify(lang)); 
       } else {
         toast.error(data.error || "Failed to update language");
       }

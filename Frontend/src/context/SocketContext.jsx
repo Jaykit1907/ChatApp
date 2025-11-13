@@ -1,3 +1,4 @@
+// src/context/SocketContext.jsx
 import { createContext, useState, useEffect, useContext } from "react";
 import { useAuthContext } from "./AuthContext";
 import io from "socket.io-client";
@@ -7,68 +8,79 @@ import useConversation from "../zustand/useConversation";
 const SocketContext = createContext();
 
 export const useSocketContext = () => {
-	return useContext(SocketContext);
+  return useContext(SocketContext);
 };
 
 export const SocketContextProvider = ({ children }) => {
-	const [socket, setSocket] = useState(null);
-	const [onlineUsers, setOnlineUsers] = useState([]);
-	const { authUser } = useAuthContext();
-	const { setTypingUsers } = useConversation(); // ✅ ADDED for Zustand typing state
+  const [socket, setSocket] = useState(null);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [contactRefreshTrigger, setContactRefreshTrigger] = useState(0); // NEW
+  const { authUser } = useAuthContext();
+  const { setTypingUsers } = useConversation();
 
-	// ✅ Create or destroy socket when authUser changes
-	useEffect(() => {
-		if (authUser) {
-			const socketInstance = io(BASE_URL, {
-				transports: ["polling"], // or ["websocket"] depending on backend
-				query: { userId: authUser._id },
-			});
+  useEffect(() => {
+    if (authUser) {
+      const socketInstance = io(BASE_URL, {
+        transports: ["polling"],
+        query: { userId: authUser._id },
+      });
 
-			setSocket(socketInstance);
+      setSocket(socketInstance);
 
-			// ✅ Update online users
-			socketInstance.on("getOnlineUsers", (users) => {
-				setOnlineUsers(users);
-			});
+      // Online users list
+      socketInstance.on("getOnlineUsers", (users) => {
+        setOnlineUsers(users);
+      });
 
-			// Cleanup on logout or unmount
-			return () => {
-				socketInstance.close();
-				setSocket(null);
-			};
-		} else {
-			if (socket) {
-				socket.close();
-				setSocket(null);
-			}
-		}
-	}, [authUser]);
+      // NEW: Listen for contactAdded events (when someone adds this user)
+      socketInstance.on("contactAdded", (payload) => {
+        console.log("contactAdded received:", payload);
+        // bump trigger so consumers (hooks/components) can react
+        setContactRefreshTrigger((t) => t + 1);
+      });
 
-	// ✅ Listen for typing indicators
-	useEffect(() => {
-		if (!socket) return;
+      // Cleanup when authUser changes or component unmounts
+      return () => {
+        socketInstance.off("getOnlineUsers");
+        socketInstance.off("contactAdded");
+        socketInstance.close();
+        setSocket(null);
+      };
+    } else {
+      // If no authUser, close existing socket if present
+      if (socket) {
+        socket.close();
+        setSocket(null);
+      }
+    }
+  }, [authUser]); // re-run when authUser changes
 
-		const handleTyping = (senderId) => {
-			setTypingUsers(senderId, true); // user started typing
-		};
+  // Typing listeners (unchanged)
+  useEffect(() => {
+    if (!socket) return;
 
-		const handleStopTyping = (senderId) => {
-			setTypingUsers(senderId, false); // user stopped typing
-		};
+    const handleTyping = (senderId) => {
+      setTypingUsers(senderId, true);
+    };
 
-		socket.on("userTyping", handleTyping);
-		socket.on("userStoppedTyping", handleStopTyping);
+    const handleStopTyping = (senderId) => {
+      setTypingUsers(senderId, false);
+    };
 
-		// Cleanup listeners to avoid duplicates
-		return () => {
-			socket.off("userTyping", handleTyping);
-			socket.off("userStoppedTyping", handleStopTyping);
-		};
-	}, [socket, setTypingUsers]);
+    socket.on("userTyping", handleTyping);
+    socket.on("userStoppedTyping", handleStopTyping);
 
-	return (
-		<SocketContext.Provider value={{ socket, onlineUsers }}>
-			{children}
-		</SocketContext.Provider>
-	);
+    return () => {
+      socket.off("userTyping", handleTyping);
+      socket.off("userStoppedTyping", handleStopTyping);
+    };
+  }, [socket, setTypingUsers]);
+
+  return (
+    <SocketContext.Provider
+      value={{ socket, onlineUsers, contactRefreshTrigger }}
+    >
+      {children}
+    </SocketContext.Provider>
+  );
 };

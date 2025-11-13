@@ -1,39 +1,54 @@
-import { useEffect, useState } from "react";
+// src/hooks/useGetConversations.js
+import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
 import { GET_CONVERSATION } from "../Url";
+import { useSocketContext } from "../context/SocketContext";
 
 const useGetConversations = () => {
-    const [loading, setLoading] = useState(false);
-    const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [conversations, setConversations] = useState([]);
+  const { contactRefreshTrigger } = useSocketContext(); // NEW
 
-    useEffect(() => {
-        const getConversations = async () => {
-            setLoading(true);
-            try {
-                // Fetch contacts for the logged-in user
-             const res = await fetch(GET_CONVERSATION, {
-            credentials: "include", // 🔥 this sends the cookie!
-            });
+  const fetchConversations = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(GET_CONVERSATION, {
+        credentials: "include",
+      });
 
-                const data = await res.json();
+      const data = await res.json();
 
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                setConversations(data);
-                console.log(data);
-            
-            } catch (error) {
-                toast.error(error.message);
-            } finally {
-                setLoading(false);
-            }
-        };
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
-        getConversations();
-    }, []);
+      setConversations(data || []);
+    } catch (error) {
+      console.error("fetchConversations error:", error);
+      toast.error(error.message || "Failed to load conversations");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    return { loading, conversations };
+  // initial load
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // refetch when socket notifies a contact change
+  useEffect(() => {
+    if (contactRefreshTrigger > 0) {
+      fetchConversations();
+    }
+  }, [contactRefreshTrigger, fetchConversations]);
+
+  return {
+    loading,
+    conversations,
+    refetch: fetchConversations,
+    setConversations, // for optimistic updates if needed
+  };
 };
 
 export default useGetConversations;
